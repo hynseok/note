@@ -117,14 +117,14 @@ export const Editor = ({
                 } catch (e) { }
 
                 // Set flag to allow pageLink removal during server update
-                // @ts-ignore
-                editor.storage.pageLink.isServerUpdate = true;
+                if ((editor.storage as any).pageLink) {
+                    (editor.storage as any).pageLink.isServerUpdate = true;
+                }
                 editor.commands.setContent(content);
                 // Reset flag after update
                 setTimeout(() => {
-                    // @ts-ignore
-                    if (editor.storage.pageLink) {
-                        editor.storage.pageLink.isServerUpdate = false;
+                    if ((editor.storage as any).pageLink) {
+                        (editor.storage as any).pageLink.isServerUpdate = false;
                     }
                 }, 50);
             }
@@ -135,8 +135,9 @@ export const Editor = ({
 
     useEffect(() => {
         if (editor && documentId) {
-            // @ts-ignore
-            editor.storage.slashCommand.documentId = documentId;
+            if ((editor.storage as any).slashCommand) {
+                (editor.storage as any).slashCommand.documentId = documentId;
+            }
         }
 
         const unsubscribe = documentEvents.subscribe((payload: any) => {
