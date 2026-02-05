@@ -5,10 +5,12 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
 import { documentEvents } from "@/lib/events";
+import { useDocumentSync } from "@/hooks/use-document-sync";
 
 export const useDatabase = (documentId: string) => {
     const router = useRouter();
     const [loading, setLoading] = useState(false);
+    const { broadcastUpdate } = useDocumentSync();
 
     const moveItem = useCallback(async (itemId: string, newDate: Date) => {
         try {
@@ -34,6 +36,9 @@ export const useDatabase = (documentId: string) => {
             toast.success("Item moved");
             router.refresh();
             documentEvents.emit({ type: "DATABASE_UPDATE" });
+
+            // Broadcast to parent document room for real-time sync
+            broadcastUpdate(documentId, { childUpdated: itemId }, Date.now());
         } catch (error) {
             toast.error("Failed to move item");
         }
@@ -61,8 +66,13 @@ export const useDatabase = (documentId: string) => {
 
             toast.success("Item created");
             router.refresh();
+            // Emit local events - these trigger refetch on the parent document
+            // The parent document's WebSocket subscription will handle real-time updates
             documentEvents.emit({ type: "DATABASE_UPDATE" });
             documentEvents.emit({ type: "CREATE_CHILD", parentId: documentId });
+
+            // Broadcast to parent document room for real-time sync
+            broadcastUpdate(documentId, { childCreated: true }, Date.now());
         } catch (error) {
             toast.error("Failed to create item");
         } finally {
@@ -80,6 +90,8 @@ export const useDatabase = (documentId: string) => {
             });
             router.refresh();
             documentEvents.emit({ type: "DATABASE_UPDATE" });
+
+            // Note: Property updates from modal already broadcast via document-modal.tsx
         } catch (error) {
             toast.error("Failed to update property");
         }

@@ -7,17 +7,35 @@ import { FileIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
-const PageLinkComponent = ({ node, deleteNode, getPos, editor }: any) => {
+const PageLinkComponent = ({ node, updateAttributes, getPos, editor }: any) => {
     const router = useRouter();
-    const [data, setData] = useState<{ title: string; icon: string } | null>(null);
-
     useEffect(() => {
         const fetchDocument = async () => {
             try {
                 const response = await fetch(`/api/documents/${node.attrs.id}`);
                 if (response.ok) {
                     const doc = await response.json();
-                    setData({ title: doc.title, icon: doc.icon });
+
+                    // Only update if changes detected, to avoid loops
+                    if (doc.title !== node.attrs.title || doc.icon !== node.attrs.icon) {
+                        // Prevent triggering generic onChange in Editor by setting the server update flag
+                        // This prevents "Document updated by another user" toast loops
+                        if (editor && editor.storage && editor.storage.pageLink) {
+                            editor.storage.pageLink.isServerUpdate = true;
+                        }
+
+                        updateAttributes({
+                            title: doc.title || "Untitled",
+                            icon: doc.icon
+                        });
+
+                        // Reset flag
+                        setTimeout(() => {
+                            if (editor && editor.storage && editor.storage.pageLink) {
+                                editor.storage.pageLink.isServerUpdate = false;
+                            }
+                        }, 50);
+                    }
                 }
             } catch (error) {
                 console.error("Failed to fetch document link data", error);
@@ -25,10 +43,11 @@ const PageLinkComponent = ({ node, deleteNode, getPos, editor }: any) => {
         };
 
         fetchDocument();
-    }, [node.attrs.id]);
+    }, [node.attrs.id, node.attrs.title, node.attrs.icon, updateAttributes]);
 
-    const title = data?.title || node.attrs.title;
-    const icon = data?.icon || node.attrs.icon;
+    // Render directly from attributes - this ensures real-time updates from editor appear immediately
+    const title = node.attrs.title;
+    const icon = node.attrs.icon;
 
     const handleDragStart = (e: React.DragEvent) => {
         // Set document ID for sidebar drop support

@@ -27,8 +27,8 @@ async function isAncestor(documentId: string, targetId: string): Promise<boolean
     return false;
 }
 
-// Helper to update parent content (add/remove pageLink)
-async function updateParentContent(parentId: string, childId: string, action: 'add' | 'remove', childData?: { title: string, icon: string | null }) {
+// Helper to update parent content (add/remove/update pageLink)
+async function updateParentContent(parentId: string, childId: string, action: 'add' | 'remove' | 'update', childData?: { title?: string, icon?: string | null }) {
     try {
         const parent = await prismadb.document.findUnique({ where: { id: parentId } });
         if (!parent) return;
@@ -65,6 +65,20 @@ async function updateParentContent(parentId: string, childId: string, action: 'a
                         }
                     });
                 }
+            } else if (action === 'update' && childData) {
+                // Find and update the node
+                const updateNode = (nodes: any[]) => {
+                    for (const node of nodes) {
+                        if (node.type === "pageLink" && node.attrs?.id === childId) {
+                            if (childData.title !== undefined) node.attrs.title = childData.title;
+                            if (childData.icon !== undefined) node.attrs.icon = childData.icon;
+                        }
+                        if (node.content) {
+                            updateNode(node.content);
+                        }
+                    }
+                };
+                updateNode(contentJson.content);
             }
 
             await prismadb.document.update({
@@ -82,6 +96,14 @@ async function updateParentContent(parentId: string, childId: string, action: 'a
                     const linkBlock = `<page-link id="${childId}" title="${childData.title || 'Untitled'}"></page-link>`;
                     newContent = newContent + linkBlock;
                 }
+            } else if (action === 'update' && childData) {
+                // Regex update is tricky for robustness, but we try best effort for title
+                // Assuming format: <page-link id="CHILD_ID" ... title="OLD_TITLE" ... >
+                if (childData.title) {
+                    const regex = new RegExp(`(<page-link[^>]*id="${childId}"[^>]*title=")([^"]*)(")`, 'g');
+                    newContent = newContent.replace(regex, `$1${childData.title}$3`);
+                }
+                // Icon update in HTML string is hard without parsing, simplified to title only for HTML fallback
             }
 
             if (newContent !== currentContent) {
@@ -193,7 +215,9 @@ export async function GET(
 
         return NextResponse.json({
             ...document,
-            currentUserPermission
+            currentUserPermission,
+            version: document.version,
+            lastSyncedAt: document.lastSyncedAt
         });
     } catch (error) {
         console.log("[DOCUMENT_GET]", error);
@@ -228,6 +252,14 @@ export async function DELETE(
             return new NextResponse("Unauthorized", { status: 401 });
         }
 
+        // Notify all users in the document room before deletion
+        const io = (global as any).io;
+        if (io) {
+            const roomName = `document:${params.documentId}`;
+            io.to(roomName).emit('document-deleted', { documentId: params.documentId });
+            console.log(`[Socket.IO] Document deleted notification sent for ${params.documentId}`);
+        }
+
         const document = await prismadb.document.delete({
             where: {
                 id: params.documentId,
@@ -257,7 +289,8 @@ export async function PATCH(
             isArchived,
             parentDocumentId,
             isDatabase,
-            properties
+            properties,
+            version: clientVersion
         } = await req.json();
 
         if (!session?.user?.email) {
@@ -272,6 +305,18 @@ export async function PATCH(
         });
 
         if (!existingDocument) return new NextResponse("Not Found", { status: 404 });
+
+        // Optimistic concurrency control: check version
+        if (clientVersion !== undefined && existingDocument.version !== clientVersion) {
+            return new NextResponse(
+                JSON.stringify({
+                    error: "Conflict",
+                    message: "Document was modified by another user",
+                    currentVersion: existingDocument.version
+                }),
+                { status: 409, headers: { 'Content-Type': 'application/json' } }
+            );
+        }
 
         const isOwner = existingDocument.userId === user.id;
 
@@ -296,10 +341,10 @@ export async function PATCH(
         }
 
         // Only owner can change certain properties
+        // Note: isDatabase is allowed for EDIT collaborators (view preference)
         const isOwnerOnlyAction = parentDocumentId !== undefined ||
             isPublished !== undefined ||
-            isArchived !== undefined ||
-            isDatabase !== undefined;
+            isArchived !== undefined;
 
         // Restrict owner-only actions
         if (isOwnerOnlyAction && !isOwner) {
@@ -328,7 +373,8 @@ export async function PATCH(
                 isDatabase,
                 properties: properties !== undefined ? (typeof properties === 'object' ? JSON.stringify(properties) : properties) : undefined,
                 parentDocumentId,
-                lastEditedById: user.id
+                lastEditedById: user.id,
+                version: { increment: 1 } // Increment version for optimistic locking
             }
         });
 
@@ -355,6 +401,17 @@ export async function PATCH(
                 title: document.title,
                 icon: document.icon
             });
+        }
+
+        // Title / Icon Propagation
+        if (title !== undefined || icon !== undefined) {
+            const parentId = document.parentDocumentId;
+            if (parentId) {
+                await updateParentContent(parentId, document.id, 'update', {
+                    title: title !== undefined ? title : undefined,
+                    icon: icon !== undefined ? icon : undefined
+                });
+            }
         }
 
         return NextResponse.json(document);
