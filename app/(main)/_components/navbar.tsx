@@ -41,7 +41,7 @@ export const Navbar = ({
                 <MenuIcon
                     role="button"
                     onClick={sidebar.onOpen}
-                    className="h-6 w-6 text-muted-foreground mr-2 cursor-pointer"
+                    className="h-6 w-6 text-muted-foreground mr-2 cursor-pointer shrink-0"
                 />
             )}
 
@@ -49,12 +49,12 @@ export const Navbar = ({
                 "flex items-center justify-between w-full mx-auto px-4 md:px-12 lg:px-24",
                 isDatabase ? "max-w-full" : "md:max-w-5xl lg:max-w-6xl"
             )}>
-                <div className="flex items-center gap-x-1 text-sm overflow-hidden">
+                <div className="flex items-center gap-x-1 text-sm overflow-hidden min-w-0 flex-1">
                     {breadcrumbs.map((doc) => (
                         <div key={doc.id} className="flex items-center gap-x-1">
-                            <Link href={`/documents/${doc.id}`} passHref>
-                                <div role="button" className="text-[#3F3F3F] dark:text-[#CFCFCF] hover:bg-neutral-100 dark:hover:bg-neutral-800 transition px-2 py-0.5 rounded-sm truncate max-w-[150px] font-medium flex items-center gap-x-1">
-                                    {doc.icon && <span className="text-base">{doc.icon}</span>}
+                            <Link href={`/documents/${doc.id}`} passHref className="min-w-0">
+                                <div role="button" className="text-[#3F3F3F] dark:text-[#CFCFCF] hover:bg-neutral-100 dark:hover:bg-neutral-800 transition px-2 py-0.5 rounded-sm truncate max-w-[150px] font-medium flex items-center gap-x-1 min-w-0">
+                                    {doc.icon && <span className="text-base shrink-0">{doc.icon}</span>}
                                     <span className="truncate">{doc.title}</span>
                                 </div>
                             </Link>
@@ -62,9 +62,11 @@ export const Navbar = ({
                         </div>
                     ))}
                     {/* Showing Live Title */}
-                    <Title initialData={{ title: title || "Untitled", id: documentId || "", icon: icon || undefined }} />
+                    <div className="min-w-0 truncate">
+                        <Title initialData={{ title: title || "Untitled", id: documentId || "", icon: icon || undefined }} />
+                    </div>
                 </div>
-                <div className="flex items-center gap-x-2">
+                <div className="flex items-center gap-x-2 shrink-0 ml-2">
                     {onToggleDatabase && (
                         <Button
                             onClick={onToggleDatabase}
