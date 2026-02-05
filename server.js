@@ -1,5 +1,5 @@
 const { createServer } = require('http');
-const { parse } = require('url');
+// const { parse } = require('url'); // Deprecated, using URL API instead
 const next = require('next');
 const { Server } = require('socket.io');
 const { getSession } = require('next-auth/react');
@@ -15,7 +15,7 @@ const handle = app.getRequestHandler();
 app.prepare().then(() => {
     const server = createServer(async (req, res) => {
         try {
-            const parsedUrl = parse(req.url, true);
+            const parsedUrl = new URL(req.url, `http://${req.headers.host}`);
             await handle(req, res, parsedUrl);
         } catch (err) {
             console.error('Error handling request:', err);
@@ -44,5 +44,6 @@ app.prepare().then(() => {
         .listen(port, () => {
             console.log(`> Ready on http://${hostname}:${port}`);
             console.log(`> WebSocket server running`);
+            console.log(`> Socket.IO CORS Origin:`, dev ? 'http://localhost:3000' : process.env.NEXTAUTH_URL);
         });
 });
