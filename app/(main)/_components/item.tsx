@@ -13,6 +13,8 @@ import { useParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useMediaQuery } from "@/hooks/use-media-query";
+import { useSidebar } from "@/hooks/use-sidebar";
 import {
     DropdownMenu,
     DropdownMenuTrigger,
@@ -70,9 +72,19 @@ export const Item = ({
         }
     }, [id]);
 
+    const sidebar = useSidebar();
+    const isMobile = useMediaQuery("(max-width: 768px)");
+
     const handleExpand = (event: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
         event.stopPropagation();
         onExpand?.();
+    };
+
+    const onClickHandler = () => {
+        if (onClick) onClick();
+        if (isMobile) {
+            sidebar.onClose();
+        }
     };
 
     const handleDragStart = (e: React.DragEvent, itemId: string) => {
@@ -244,7 +256,7 @@ export const Item = ({
 
     return (
         <div
-            onClick={onClick}
+            onClick={onClickHandler}
             role="button"
             draggable={!!id}
             onDragStart={(e) => id && handleDragStart(e, id)}

@@ -115,6 +115,9 @@ model Document {
   coverImage     String?
   icon           String?
   isPublished    Boolean   @default(false)
+  
+  isDatabase     Boolean   @default(false)
+  properties     String?   // JSON string to store database properties or item values
 
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt

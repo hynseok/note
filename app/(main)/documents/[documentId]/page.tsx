@@ -4,6 +4,7 @@ import { Editor } from "@/components/editor";
 import { useEffect, useState, useMemo } from "react";
 import TextareaAutosize from "react-textarea-autosize";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { Navbar } from "../../_components/navbar";
 import { Button } from "@/components/ui/button";
 import { FileIcon, ImageIcon, Smile, X } from "lucide-react";
@@ -12,6 +13,8 @@ import { Cover } from "@/components/cover";
 import { CoverPicker } from "@/components/cover-picker";
 import { documentEvents, setActiveExpandIds } from "@/lib/events";
 import { cn } from "@/lib/utils";
+import { CalendarView } from "@/components/database/calendar-view";
+import { useDatabase } from "@/hooks/use-database";
 
 // Simple debounce utility
 function debounce<T extends (...args: any[]) => any>(
@@ -48,9 +51,13 @@ export default function DocumentIdPage({
     const [coverImage, setCoverImage] = useState<string | null>(null);
     const [content, setContent] = useState("");
     const [childrenDocs, setChildrenDocs] = useState<any[]>([]); // Add type later if needed
+    const [tagOptions, setTagOptions] = useState<any[]>([]);
     const [parentDocument, setParentDocument] = useState<any>(null);
     const [permission, setPermission] = useState("READ");
+    const [isDatabase, setIsDatabase] = useState(false);
     const [loading, setLoading] = useState(true);
+
+    const { moveItem, createItem } = useDatabase(documentId);
 
     // Debounced update function
     const updateDocument = useMemo(
@@ -81,6 +88,20 @@ export default function DocumentIdPage({
             setChildrenDocs(data.childDocuments || []);
             setParentDocument(data.parentDocument || null);
             setPermission(data.currentUserPermission || "READ");
+            setIsDatabase(data.isDatabase || false);
+
+            // Extract tag options
+            try {
+                if (data.properties) {
+                    const props = JSON.parse(data.properties);
+                    if (props.tagOptions) {
+                        setTagOptions(props.tagOptions);
+                    }
+                }
+            } catch (e) {
+                // Ignore json parse error
+            }
+
             setLoading(false);
 
             // Auto-expand sidebar
@@ -103,10 +124,17 @@ export default function DocumentIdPage({
 
         // Subscribe to external updates (e.g. sidebar creation of child)
         const unsubscribe = documentEvents.subscribe((payload: any) => {
-            // Ignore events that shouldn't trigger a page re-fetch
-            if (payload && (payload.type === "EXPAND" || payload.type === "UPDATE_TITLE")) {
+            // Ignore expansion events
+            if (payload && payload.type === "EXPAND") {
                 return;
             }
+
+            // If it's a title/icon update, only ignore if it's for the CURRENT document
+            // This allows child updates from the DocumentModal to trigger a re-fetch
+            if (payload && payload.type === "UPDATE_TITLE" && payload.id === documentId) {
+                return;
+            }
+
             // We re-fetch to see if children updated or title changed externally
             fetchDocument();
         });
@@ -165,6 +193,16 @@ export default function DocumentIdPage({
 
     const canEdit = permission === "OWNER" || permission === "EDIT";
 
+    const onToggleDatabase = async () => {
+        const newValue = !isDatabase;
+        setIsDatabase(newValue);
+        await fetch(`/api/documents/${documentId}`, {
+            method: "PATCH",
+            body: JSON.stringify({ isDatabase: newValue }),
+        });
+        toast.success(newValue ? "Switched to Database view" : "Switched to Page view");
+    };
+
     return (
         <>
             <Navbar
@@ -172,10 +210,15 @@ export default function DocumentIdPage({
                 title={title}
                 icon={icon}
                 parentDocument={parentDocument}
+                isDatabase={isDatabase}
+                onToggleDatabase={canEdit ? onToggleDatabase : undefined}
             />
             <Cover url={coverImage || undefined} preview={!canEdit} onChange={onChangeCover} onRemove={onRemoveCover} />
             <div className="pb-40">
-                <div className="md:max-w-5xl lg:max-w-6xl mx-auto px-12 md:px-24">
+                <div className={cn(
+                    "mx-auto px-12 md:px-24",
+                    isDatabase ? "max-w-full" : "md:max-w-5xl lg:max-w-6xl"
+                )}>
                     <div className="group relative">
                         {/* Add Icon / Cover Placeholders here */}
                         <div className={cn(
@@ -258,14 +301,6 @@ export default function DocumentIdPage({
                                             editor.focus();
                                         }
                                     }
-                                    // Add ArrowDown navigation
-                                    if (e.key === "ArrowDown") {
-                                        e.preventDefault();
-                                        const editor = document.querySelector('.ProseMirror') as HTMLElement;
-                                        if (editor) {
-                                            editor.focus();
-                                        }
-                                    }
                                 }}
                                 className="w-full text-5xl bg-transparent font-bold break-words outline-none text-[#3F3F3F] dark:text-[#CFCFCF] resize-none disabled:opacity-50"
                                 placeholder="Untitled"
@@ -273,15 +308,35 @@ export default function DocumentIdPage({
                         </div>
                     </div>
                     <div className="pl-2">
-                        {/* Child Documents Links Removed - moving to editor content */}
-
+                        {/* Database View or Editor */}
                         {!loading && (
-                            <Editor
-                                documentId={documentId}
-                                onChange={onContentChange}
-                                initialContent={content}
-                                editable={canEdit}
-                            />
+                            isDatabase ? (
+                                <div className="mt-4">
+                                    <CalendarView
+                                        documents={childrenDocs}
+                                        tagOptions={tagOptions}
+                                        onMoveItem={moveItem}
+                                        onCreateItem={createItem}
+                                    />
+                                    {/* Optional: Show editor below database? Or hide it? Notion hides it usually unless opened as page */}
+                                    <div className="mt-8 pt-8 border-t border-neutral-200 dark:border-neutral-800">
+                                        <p className="text-sm text-muted-foreground mb-2">Description</p>
+                                        <Editor
+                                            documentId={documentId}
+                                            onChange={onContentChange}
+                                            initialContent={content}
+                                            editable={canEdit}
+                                        />
+                                    </div>
+                                </div>
+                            ) : (
+                                <Editor
+                                    documentId={documentId}
+                                    onChange={onContentChange}
+                                    initialContent={content}
+                                    editable={canEdit}
+                                />
+                            )
                         )}
                     </div>
                 </div>

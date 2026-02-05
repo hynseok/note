@@ -192,7 +192,8 @@ export const PageLink = Node.create({
 
     addStorage() {
         return {
-            isServerUpdate: false
+            isServerUpdate: false,
+            bypassProtection: false,
         };
     },
 
@@ -205,7 +206,7 @@ export const PageLink = Node.create({
                 key: new PluginKey('protect-page-link'),
                 appendTransaction: (transactions, oldState, newState) => {
                     // Skip protection during server-initiated updates
-                    if (storage.isServerUpdate) return null;
+                    if (storage.isServerUpdate || storage.bypassProtection) return null;
 
                     // Only check if document changed
                     if (!transactions.some(tr => tr.docChanged)) return null;

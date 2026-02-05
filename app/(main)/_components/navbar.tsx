@@ -1,27 +1,32 @@
 "use client";
 
-import { MenuIcon, FileIcon } from "lucide-react";
+import { MenuIcon, FileIcon, FileText, Layout } from "lucide-react";
 import { Title } from "./title";
 import Link from "next/link";
 import { SharePopover } from "@/components/share-popover";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import { useSidebar } from "@/hooks/use-sidebar";
 
 interface NavbarProps {
-    isCollapsed?: boolean;
-    onResetWidth?: () => void;
     documentId?: string;
     title?: string;
     icon?: string | null;
     parentDocument?: { id: string, title: string, icon: string | null } | null;
+    isDatabase?: boolean;
+    onToggleDatabase?: () => void;
 };
 
 export const Navbar = ({
-    isCollapsed,
-    onResetWidth,
     documentId,
     title,
     icon,
-    parentDocument
+    parentDocument,
+    isDatabase,
+    onToggleDatabase
 }: NavbarProps) => {
+    const sidebar = useSidebar();
+
     // Flatten the recursive parentDocument structure into an array
     const breadcrumbs = [];
     let current = parentDocument;
@@ -32,15 +37,18 @@ export const Navbar = ({
 
     return (
         <nav className="sticky top-0 z-50 bg-background dark:bg-[#1F1F1F] px-4 py-3 w-full flex items-center gap-x-4 border-b border-black/5 dark:border-white/5 transition-all ease-in-out">
-            {isCollapsed && (
+            {!sidebar.isOpen && (
                 <MenuIcon
                     role="button"
-                    onClick={onResetWidth}
-                    className="h-6 w-6 text-muted-foreground"
+                    onClick={sidebar.onOpen}
+                    className="h-6 w-6 text-muted-foreground mr-2 cursor-pointer"
                 />
             )}
 
-            <div className="flex items-center justify-between w-full md:max-w-5xl lg:max-w-6xl mx-auto px-12 md:px-24">
+            <div className={cn(
+                "flex items-center justify-between w-full mx-auto px-12 md:px-24",
+                isDatabase ? "max-w-full" : "md:max-w-5xl lg:max-w-6xl"
+            )}>
                 <div className="flex items-center gap-x-1 text-sm overflow-hidden">
                     {breadcrumbs.map((doc) => (
                         <div key={doc.id} className="flex items-center gap-x-1">
@@ -57,6 +65,24 @@ export const Navbar = ({
                     <Title initialData={{ title: title || "Untitled", id: documentId || "", icon: icon || undefined }} />
                 </div>
                 <div className="flex items-center gap-x-2">
+                    {onToggleDatabase && (
+                        <Button
+                            onClick={onToggleDatabase}
+                            variant="ghost"
+                            size="sm"
+                            className={cn(
+                                "text-muted-foreground",
+                                isDatabase && "bg-neutral-200 dark:bg-neutral-800 text-primary"
+                            )}
+                        >
+                            {isDatabase ? (
+                                <Layout className="h-4 w-4 mr-1" />
+                            ) : (
+                                <FileText className="h-4 w-4 mr-1" />
+                            )}
+                            {isDatabase ? "Database" : "Page"}
+                        </Button>
+                    )}
                     <SharePopover />
                 </div>
             </div>
