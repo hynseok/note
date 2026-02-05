@@ -46,7 +46,7 @@ export const Navbar = ({
             )}
 
             <div className={cn(
-                "flex items-center justify-between w-full mx-auto px-12 md:px-24",
+                "flex items-center justify-between w-full mx-auto px-4 md:px-12 lg:px-24",
                 isDatabase ? "max-w-full" : "md:max-w-5xl lg:max-w-6xl"
             )}>
                 <div className="flex items-center gap-x-1 text-sm overflow-hidden">

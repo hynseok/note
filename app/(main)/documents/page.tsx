@@ -6,6 +6,8 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
+import { Navbar } from "../_components/navbar";
+
 const DocumentsPage = () => {
     const router = useRouter();
     const { data: session } = useSession();
@@ -34,19 +36,22 @@ const DocumentsPage = () => {
     }
 
     return (
-        <div className="h-full flex flex-col items-center justify-center space-y-6">
-            <div className="text-center space-y-2">
-                <h2 className="text-2xl font-bold tracking-tight">
-                    Welcome to PrivateNote
-                </h2>
-                <p className="text-muted-foreground text-sm">
-                    Your minimalist workspace for clutter-free thinking.
-                </p>
+        <div className="h-full flex flex-col">
+            <Navbar />
+            <div className="flex-1 flex flex-col items-center justify-center space-y-6 pb-40">
+                <div className="text-center space-y-2">
+                    <h2 className="text-2xl font-bold tracking-tight">
+                        Welcome to PrivateNote
+                    </h2>
+                    <p className="text-muted-foreground text-sm">
+                        Your minimalist workspace for clutter-free thinking.
+                    </p>
+                </div>
+                <Button onClick={onCreate} size="lg" className="rounded-full px-8 shadow-lg hover:shadow-xl transition-all">
+                    <PlusCircle className="h-4 w-4 mr-2" />
+                    Create a note
+                </Button>
             </div>
-            <Button onClick={onCreate} size="lg" className="rounded-full px-8 shadow-lg hover:shadow-xl transition-all">
-                <PlusCircle className="h-4 w-4 mr-2" />
-                Create a note
-            </Button>
         </div>
     );
 }
