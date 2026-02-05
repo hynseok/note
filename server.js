@@ -32,16 +32,19 @@ app.prepare().then(() => {
     const io = new Server(server, {
         cors: {
             origin: (origin, callback) => {
+                const navUrl = process.env.NEXTAUTH_URL;
+                // Normalize allowed origin (remove trailing slash)
+                const allowedOrigin = navUrl ? navUrl.replace(/\/$/, '') : '';
+
                 const allowedOrigins = [
                     'http://localhost:3000',
-                    process.env.NEXTAUTH_URL,
-                    'https://note.cbum.org' // Explicitly add production domain
+                    allowedOrigin
                 ];
 
                 // Allow requests with no origin (like mobile apps or curl requests)
                 if (!origin) return callback(null, true);
 
-                if (allowedOrigins.indexOf(origin) !== -1 || origin.endsWith('note.cbum.org')) {
+                if (allowedOrigins.indexOf(origin) !== -1) {
                     callback(null, true);
                 } else {
                     console.log('[Socket.IO] Blocked CORS from:', origin);
@@ -55,7 +58,12 @@ app.prepare().then(() => {
     });
 
     io.engine.on("connection_error", (err) => {
-        console.log("[Socket.IO] Connection error:", err.code, err.message, err.context);
+        console.log("[Socket.IO] Connection error:", err.code, err.message);
+        // Log request details to debug "Bad request" issues (often missing query params due to proxy)
+        if (err.req) {
+            console.log("  - Request URL:", err.req.url);
+            console.log("  - Request Headers:", err.req.headers);
+        }
     });
 
     // Import socket handler
