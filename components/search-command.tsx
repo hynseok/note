@@ -60,7 +60,7 @@ export const SearchCommand = () => {
                 <Command className="rounded-xl border border-black/5 dark:border-white/10 shadow-xl bg-white dark:bg-[#252525] overflow-hidden">
                     <div className="relative">
                         <Search className="absolute top-[18px] left-4 h-5 w-5 text-[#888] dark:text-[#888]" />
-                        <CommandInput placeholder="Search or ask a question in Notion..." />
+                        <CommandInput placeholder="Search documents..." />
                     </div>
 
                     <CommandList>

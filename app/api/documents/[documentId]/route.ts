@@ -118,7 +118,7 @@ export async function GET(
                 },
                 childDocuments: {
                     where: { isArchived: false },
-                    select: { id: true, title: true, icon: true }
+                    select: { id: true, title: true, icon: true, properties: true, isDatabase: true }
                 },
                 parentDocument: {
                     select: {
@@ -255,7 +255,9 @@ export async function PATCH(
             coverImage,
             isPublished,
             isArchived,
-            parentDocumentId
+            parentDocumentId,
+            isDatabase,
+            properties
         } = await req.json();
 
         if (!session?.user?.email) {
@@ -296,7 +298,8 @@ export async function PATCH(
         // Only owner can change certain properties
         const isOwnerOnlyAction = parentDocumentId !== undefined ||
             isPublished !== undefined ||
-            isArchived !== undefined;
+            isArchived !== undefined ||
+            isDatabase !== undefined;
 
         // Restrict owner-only actions
         if (isOwnerOnlyAction && !isOwner) {
@@ -322,6 +325,8 @@ export async function PATCH(
                 coverImage,
                 isPublished,
                 isArchived,
+                isDatabase,
+                properties: properties !== undefined ? (typeof properties === 'object' ? JSON.stringify(properties) : properties) : undefined,
                 parentDocumentId,
                 lastEditedById: user.id
             }

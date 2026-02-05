@@ -11,7 +11,7 @@ export async function POST(req: Request) {
             return new NextResponse("Unauthorized", { status: 401 });
         }
 
-        const { title, parentDocumentId, skipContentUpdate } = await req.json();
+        const { title, parentDocumentId, skipContentUpdate, isDatabase, properties } = await req.json();
 
         const user = await prismadb.user.findUnique({
             where: {
@@ -60,6 +60,8 @@ export async function POST(req: Request) {
                 userId: ownerId,
                 isArchived: false,
                 isPublished: false,
+                isDatabase: isDatabase || false,
+                properties: properties ? JSON.stringify(properties) : undefined,
             }
         });
 

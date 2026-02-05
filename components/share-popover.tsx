@@ -108,7 +108,7 @@ export const SharePopover = () => {
         <Popover>
             <PopoverTrigger asChild>
                 <Button variant="ghost" size="sm" className="text-neutral-700 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white transition-colors">
-                    <Share className="h-4 w-4 mr-2" />
+                    <Share className="h-4 w-4 mr-1" />
                     Share
                 </Button>
             </PopoverTrigger>
