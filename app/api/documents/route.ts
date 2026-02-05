@@ -76,6 +76,41 @@ export async function POST(req: Request) {
             });
         }
 
+        // Copy all collaborators from parent document to child
+        if (parentDocumentId) {
+            const parentCollaborators = await prismadb.collaborator.findMany({
+                where: { documentId: parentDocumentId }
+            });
+
+            // Create collaborators for the new document (excluding the creating user if already added)
+            for (const collab of parentCollaborators) {
+                // Skip if already added (isCollaboratorCreating case)
+                if (isCollaboratorCreating && collab.userId === user.id) {
+                    continue;
+                }
+
+                await prismadb.collaborator.create({
+                    data: {
+                        documentId: document.id,
+                        userId: collab.userId,
+                        permission: collab.permission
+                    }
+                });
+            }
+
+            // Broadcast child creation to parent document room for real-time sync
+            const io = (global as any).io;
+            if (io) {
+                const roomName = `document:${parentDocumentId}`;
+                io.to(roomName).emit('remote-update', {
+                    documentId: parentDocumentId,
+                    changes: { childCreated: true, newChildId: document.id },
+                    version: Date.now()
+                });
+                console.log(`[Socket.IO] Child creation broadcast for parent ${parentDocumentId}`);
+            }
+        }
+
         // Skip content update if requested (e.g., when parent is open in editor)
         if (parentDocumentId && !skipContentUpdate) {
             // Re-fetch parent to safely update content

@@ -4,7 +4,7 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Editor } from "@/components/editor";
 import { PropertyEditor } from "./property-editor";
 import { useDatabase } from "@/hooks/use-database";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Maximize2, Smile, ImageIcon, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
@@ -14,6 +14,8 @@ import { IconPicker } from "@/components/icon-picker";
 import TextareaAutosize from "react-textarea-autosize";
 import { cn } from "@/lib/utils";
 import { documentEvents } from "@/lib/events";
+import { useDocumentSync } from "@/hooks/use-document-sync";
+import { toast } from "sonner";
 
 interface DocumentModalProps {
     documentId: string;
@@ -24,6 +26,7 @@ interface DocumentModalProps {
 export const DocumentModal = ({ documentId, isOpen, onClose }: DocumentModalProps) => {
     const router = useRouter();
     const { updateProperty } = useDatabase(documentId);
+    const { broadcastUpdate, joinDocument, leaveDocument, subscribe } = useDocumentSync();
 
     // Document State
     const [title, setTitle] = useState("Untitled");
@@ -33,6 +36,7 @@ export const DocumentModal = ({ documentId, isOpen, onClose }: DocumentModalProp
     const [properties, setProperties] = useState<any>({});
     const [tagOptions, setTagOptions] = useState<{ id: string; label: string; color: string }[]>([]);
     const [parentDocumentId, setParentDocumentId] = useState<string | null>(null);
+    const [version, setVersion] = useState(1);
 
     const [loading, setLoading] = useState(false);
 
@@ -40,6 +44,9 @@ export const DocumentModal = ({ documentId, isOpen, onClose }: DocumentModalProp
     useEffect(() => {
         if (isOpen && documentId) {
             setLoading(true);
+            // Join the document room for real-time updates
+            joinDocument(documentId);
+
             fetch(`/api/documents/${documentId}`)
                 .then(res => res.json())
                 .then(data => {
@@ -47,6 +54,7 @@ export const DocumentModal = ({ documentId, isOpen, onClose }: DocumentModalProp
                     setIcon(data.icon);
                     setCoverImage(data.coverImage);
                     setContent(data.content);
+                    setVersion(data.version || 1);
                     try {
                         setProperties(data.properties ? JSON.parse(data.properties) : {});
                     } catch {
@@ -73,22 +81,103 @@ export const DocumentModal = ({ documentId, isOpen, onClose }: DocumentModalProp
                     }
                 })
                 .finally(() => setLoading(false));
-        }
-    }, [isOpen, documentId]);
 
-    // Update Logic
+            // Subscribe to remote updates
+            const unsubscribeSocket = subscribe((update) => {
+                if (update.documentId !== documentId) return;
+
+                console.log("[Modal Real-time] Received remote update", update);
+
+                // Update local state with remote changes
+                if (update.changes.title !== undefined) setTitle(update.changes.title);
+                if (update.changes.icon !== undefined) setIcon(update.changes.icon);
+                if (update.changes.coverImage !== undefined) setCoverImage(update.changes.coverImage);
+                if (update.changes.content !== undefined) {
+                    setContent(update.changes.content);
+                    // Emit event for Editor component to pick up if needed, though we pass content directly
+                    // The Editor component needs to handle this prop change or event
+                    documentEvents.emit({ type: "REMOTE_CONTENT_UPDATE", documentId, content: update.changes.content });
+                }
+                if (update.changes.properties !== undefined) {
+                    setProperties(update.changes.properties);
+                }
+
+                if (update.version) setVersion(update.version);
+            });
+
+            return () => {
+                leaveDocument(documentId);
+                unsubscribeSocket();
+            };
+        }
+    }, [isOpen, documentId, joinDocument, leaveDocument, subscribe]);
+
+    // Update Logic with WebSocket broadcast
     const updateDocument = async (values: { title?: string; content?: string; icon?: string | null; coverImage?: string | null }) => {
-        await fetch(`/api/documents/${documentId}`, {
-            method: "PATCH",
-            body: JSON.stringify(values),
-        });
-        documentEvents.emit({ type: "UPDATE_TITLE", id: documentId, ...values });
+        try {
+            const response = await fetch(`/api/documents/${documentId}`, {
+                method: "PATCH",
+                body: JSON.stringify({ ...values, version }),
+                headers: { 'Content-Type': 'application/json' },
+            });
+
+            if (!response.ok) {
+                if (response.status === 409) {
+                    toast.error("Document was modified by another user");
+                    return;
+                }
+                throw new Error("Failed to update");
+            }
+
+            const updatedDoc = await response.json();
+            setVersion(updatedDoc.version);
+
+            // Broadcast via WebSocket to the document itself
+            broadcastUpdate(documentId, values, updatedDoc.version);
+
+            // CRITICAL: Also broadcast to the PARENT document so the page link/calendar updates
+            if (parentDocumentId) {
+                broadcastUpdate(parentDocumentId, { childUpdated: documentId }, Date.now());
+            }
+
+            // Local event for sidebar
+            documentEvents.emit({ type: "UPDATE_TITLE", id: documentId, ...values });
+        } catch (error) {
+            console.error("Failed to update document:", error);
+            toast.error("Failed to save changes");
+        }
     };
 
-    const onTitleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-        const newTitle = e.target.value;
+    const onContentChange = (newContent: string) => {
+        setContent(newContent);
+        // Debounce content save
+        if (debouncedUpdate.current) {
+            clearTimeout(debouncedUpdate.current);
+        }
+        debouncedUpdate.current = setTimeout(() => {
+            updateDocument({ content: newContent });
+        }, 1000); // 1s debounce for content
+    };
+
+    // Custom debounce function
+    const debouncedUpdate = useRef<NodeJS.Timeout | null>(null);
+
+    const onTitleChange = useCallback((newTitle: string) => {
         setTitle(newTitle);
-        updateDocument({ title: newTitle });
+
+        // Clear previous timeout
+        if (debouncedUpdate.current) {
+            clearTimeout(debouncedUpdate.current);
+        }
+
+        // Set new timeout
+        debouncedUpdate.current = setTimeout(() => {
+            updateDocument({ title: newTitle });
+        }, 500);
+    }, [updateDocument]);
+
+    const handleTitleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+        onTitleChange(e.target.value);
     };
 
     const onIconSelect = (icon: string) => {
@@ -113,7 +202,39 @@ export const DocumentModal = ({ documentId, isOpen, onClose }: DocumentModalProp
 
     const handlePropertyUpdate = async (newProperties: any) => {
         setProperties(newProperties);
-        await updateProperty(documentId, newProperties);
+
+        try {
+            // Update via API with version check
+            const response = await fetch(`/api/documents/${documentId}`, {
+                method: "PATCH",
+                body: JSON.stringify({ properties: newProperties, version }),
+                headers: { 'Content-Type': 'application/json' },
+            });
+
+            if (!response.ok) {
+                if (response.status === 409) {
+                    toast.error("Document was modified by another user");
+                    return;
+                }
+                throw new Error("Failed to update");
+            }
+
+            const updatedDoc = await response.json();
+            setVersion(updatedDoc.version);
+
+            // Broadcast property update via WebSocket
+            broadcastUpdate(documentId, { properties: newProperties }, updatedDoc.version);
+
+            // CRITICAL: Also broadcast to the PARENT document so the calendar view updates date/tags
+            if (parentDocumentId) {
+                broadcastUpdate(parentDocumentId, { childUpdated: documentId }, Date.now());
+                // Also emit local event for the current user's view (if they are viewing the parent)
+                documentEvents.emit({ type: "CHILD_UPDATED", parentId: parentDocumentId, childId: documentId });
+            }
+        } catch (error) {
+            console.error("Failed to update properties:", error);
+            toast.error("Failed to save properties");
+        }
     };
 
     const handleTagOptionsUpdate = async (newOptions: { id: string; label: string; color: string }[]) => {
@@ -242,7 +363,7 @@ export const DocumentModal = ({ documentId, isOpen, onClose }: DocumentModalProp
                                     {/* Title Input */}
                                     <TextareaAutosize
                                         value={title}
-                                        onChange={onTitleChange}
+                                        onChange={handleTitleInputChange}
                                         className="w-full text-4xl font-bold bg-transparent outline-none resize-none placeholder:text-muted-foreground/50 border-none px-0 py-2 break-words text-[#3F3F3F] dark:text-[#CFCFCF]"
                                         placeholder="Untitled"
                                     />
@@ -264,6 +385,7 @@ export const DocumentModal = ({ documentId, isOpen, onClose }: DocumentModalProp
                                         documentId={documentId}
                                         initialContent={content}
                                         editable={true}
+                                        onChange={onContentChange}
                                     />
                                 </div>
                             </div>

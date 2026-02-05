@@ -149,6 +149,35 @@ export const Editor = ({
                 refetchContent();
             }
 
+            // Handle real-time remote updates from WebSocket
+            if (payload.type === "REMOTE_CONTENT_UPDATE" && payload.documentId === documentId) {
+                if (!editor || !payload.content) return;
+
+                try {
+                    let content = payload.content;
+                    const trimmed = content.trim();
+                    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+                        content = JSON.parse(trimmed);
+                    }
+
+                    // Set flag to prevent onChange trigger
+                    if ((editor.storage as any).pageLink) {
+                        (editor.storage as any).pageLink.isServerUpdate = true;
+                    }
+
+                    editor.commands.setContent(content);
+
+                    // Reset flag
+                    setTimeout(() => {
+                        if ((editor.storage as any).pageLink) {
+                            (editor.storage as any).pageLink.isServerUpdate = false;
+                        }
+                    }, 50);
+                } catch (error) {
+                    console.error("Failed to apply remote content update", error);
+                }
+            }
+
             if (payload.type === "DELETE") {
                 const { id } = payload;
                 if (!id || !editor) return;

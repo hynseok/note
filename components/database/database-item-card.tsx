@@ -35,14 +35,14 @@ export const DatabaseItemCard = ({ document, tagOptions = [], onOpen }: Database
                 ) : (
                     <FileIcon className="h-4 w-4 text-muted-foreground" />
                 )}
-                <span className="truncate font-medium text-neutral-700 dark:text-neutral-200">
+                <span className="truncate font-medium text-neutral-700 dark:text-neutral-200 text-sm">
                     {document.title || "Untitled"}
                 </span>
             </div>
             {tags.length > 0 && (
                 <div className="flex flex-wrap gap-1 mt-1">
                     {tags.map((tag: string) => (
-                        <Badge key={tag} variant="secondary" className={cn("px-1 py-0 text-[10px] h-4 border-none shadow-none", getTagColor(tag))}>
+                        <Badge key={tag} variant="secondary" className={cn("px-1 py-0 text-[12px] h-5 border-none shadow-none max-w-full truncate block", getTagColor(tag))}>
                             {tag}
                         </Badge>
                     ))}
