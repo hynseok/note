@@ -29,7 +29,7 @@ export const DocumentModal = ({ documentId, isOpen, onClose }: DocumentModalProp
     const { broadcastUpdate, joinDocument, leaveDocument, subscribe } = useDocumentSync();
 
     // Document State
-    const [title, setTitle] = useState("Untitled");
+    const [title, setTitle] = useState("");
     const [icon, setIcon] = useState<string | null>(null);
     const [coverImage, setCoverImage] = useState<string | null>(null);
     const [content, setContent] = useState("");
@@ -51,7 +51,8 @@ export const DocumentModal = ({ documentId, isOpen, onClose }: DocumentModalProp
             fetch(`/api/documents/${documentId}`)
                 .then(res => res.json())
                 .then(data => {
-                    setTitle(data.title);
+                    // Treat "Untitled" as empty string for placeholder behavior
+                    setTitle(data.title === "Untitled" ? "" : data.title);
                     setIcon(data.icon);
                     setCoverImage(data.coverImage);
                     setContent(data.content);
@@ -91,7 +92,10 @@ export const DocumentModal = ({ documentId, isOpen, onClose }: DocumentModalProp
                 console.log("[Modal Real-time] Received remote update", update);
 
                 // Update local state with remote changes
-                if (update.changes.title !== undefined) setTitle(update.changes.title);
+                if (update.changes.title !== undefined) {
+                    const newTitle = update.changes.title;
+                    setTitle(newTitle === "Untitled" ? "" : newTitle);
+                }
                 if (update.changes.icon !== undefined) setIcon(update.changes.icon);
                 if (update.changes.coverImage !== undefined) setCoverImage(update.changes.coverImage);
                 if (update.changes.content !== undefined) {
@@ -174,6 +178,10 @@ export const DocumentModal = ({ documentId, isOpen, onClose }: DocumentModalProp
 
         // Set new timeout
         debouncedUpdate.current = setTimeout(() => {
+            // Save as empty string if empty, don't force "Untitled" string in DB if we want true placeholder behavior
+            // But if we want to be safe, we can save "Untitled" if strictly empty? 
+            // Standard is usually saving empty string and handling display. 
+            // Existing sidebar code handles empty string | "Untitled".
             updateDocument({ title: newTitle });
         }, 500);
     }, [updateDocument]);

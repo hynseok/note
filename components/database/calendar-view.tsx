@@ -17,6 +17,7 @@ interface CalendarViewProps {
 
 export const CalendarView = ({ documents, tagOptions = [], onMoveItem, onCreateItem }: CalendarViewProps) => {
     const [currentDate, setCurrentDate] = useState(new Date());
+    const [selectedDate, setSelectedDate] = useState(new Date());
     const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -76,7 +77,7 @@ export const CalendarView = ({ documents, tagOptions = [], onMoveItem, onCreateI
     };
 
     return (
-        <div className="flex h-full flex-col p-4">
+        <div className="flex h-full flex-col p-2 md:p-4">
             {/* Header */}
             <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-bold">{format(currentDate, "MMMM yyyy")}</h2>
@@ -91,15 +92,6 @@ export const CalendarView = ({ documents, tagOptions = [], onMoveItem, onCreateI
                 </div>
             </div>
 
-            {/* Days Header */}
-            <div className="grid grid-cols-7 gap-px border-b border-neutral-200 dark:border-neutral-800 pb-2 mb-2">
-                {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((dayName) => (
-                    <div key={dayName} className="text-center text-xs font-semibold text-muted-foreground uppercase">
-                        {dayName}
-                    </div>
-                ))}
-            </div>
-
             {/* Calendar Grid */}
             <div className={cn(
                 "flex-1 grid grid-cols-7 gap-px bg-neutral-200 dark:bg-neutral-800 rounded-lg overflow-hidden border border-neutral-200 dark:border-neutral-800",
@@ -108,47 +100,99 @@ export const CalendarView = ({ documents, tagOptions = [], onMoveItem, onCreateI
                 {days.map((day) => {
                     const dayDocs = getDocumentsForDay(day);
                     const isCurrentMonth = isSameMonth(day, monthStart);
+                    const isSelected = isSameDay(day, selectedDate);
+                    const isToday = isSameDay(day, new Date());
 
                     return (
                         <div
                             key={day.toISOString()}
                             onDrop={(e) => handleDrop(e, day)}
                             onDragOver={handleDragOver}
+                            onClick={() => setSelectedDate(day)}
                             className={cn(
-                                "bg-white dark:bg-neutral-900 p-2 min-h-[100px] flex flex-col gap-1 relative group hover:bg-neutral-50 dark:hover:bg-neutral-900/50 transition-colors",
-                                !isCurrentMonth && "bg-neutral-50 dark:bg-neutral-950/50 text-muted-foreground"
+                                "bg-white dark:bg-neutral-900 p-2 relative group hover:bg-neutral-50 dark:hover:bg-neutral-900/50 transition-colors flex flex-col items-center md:items-stretch cursor-pointer md:cursor-default",
+                                "min-h-[60px] md:min-h-[100px]",
+                                !isCurrentMonth && "bg-neutral-50 dark:bg-neutral-950/50 text-muted-foreground",
+                                isSelected && "bg-primary/5 dark:bg-primary/10 md:bg-white md:dark:bg-neutral-900" // Mobile selection state
                             )}
                         >
-                            <div className="flex items-center justify-between">
+                            <div className="flex items-center justify-center md:justify-between w-full">
                                 <span className={cn(
                                     "text-sm font-medium w-6 h-6 flex items-center justify-center rounded-full",
-                                    isSameDay(day, new Date()) && "bg-primary text-primary-foreground"
+                                    isToday && "bg-primary text-primary-foreground",
+                                    isSelected && !isToday && "bg-neutral-200 dark:bg-neutral-700 md:bg-transparent md:dark:bg-transparent"
                                 )}>
                                     {format(day, "d")}
                                 </span>
                                 <Button
-                                    onClick={() => onCreateItem(day)}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onCreateItem(day);
+                                    }}
                                     variant="ghost"
                                     size="icon"
-                                    className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity"
+                                    className="hidden md:flex h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity"
                                 >
                                     <Plus className="h-3 w-3" />
                                 </Button>
                             </div>
 
-                            <div className="flex flex-col gap-1 mt-1 overflow-y-auto max-h-[100px]">
+                            {/* Mobile Dot Indicator */}
+                            <div className="md:hidden mt-1 h-2 flex justify-center">
+                                {dayDocs.length > 0 && (
+                                    <div className="w-1.5 h-1.5 rounded-full bg-neutral-400 dark:bg-neutral-500" />
+                                )}
+                            </div>
+
+                            {/* Desktop Items List */}
+                            <div className="hidden md:flex flex-col gap-1 mt-1 overflow-y-auto max-h-[100px]">
                                 {dayDocs.map((doc) => (
-                                    <DatabaseItemCard
-                                        key={doc.id}
-                                        document={doc}
-                                        tagOptions={tagOptions}
-                                        onOpen={onOpenModal}
-                                    />
+                                    <div key={doc.id} onClick={(e) => e.stopPropagation()}>
+                                        <DatabaseItemCard
+                                            document={doc}
+                                            tagOptions={tagOptions}
+                                            onOpen={onOpenModal}
+                                        />
+                                    </div>
                                 ))}
                             </div>
                         </div>
                     )
                 })}
+            </div>
+
+            {/* Mobile Daily List View */}
+            <div className="md:hidden mt-4 border-t border-neutral-200 dark:border-neutral-800 pt-4">
+                <div className="flex items-center justify-between mb-2 px-2">
+                    <h3 className="text-sm font-medium text-muted-foreground">
+                        {format(selectedDate, "MMM d, yyyy")}
+                    </h3>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => onCreateItem(selectedDate)}
+                        className="h-8 text-xs text-muted-foreground"
+                    >
+                        <Plus className="h-3 w-3 mr-1" />
+                        Add item
+                    </Button>
+                </div>
+                <div className="flex flex-col gap-2 min-h-[100px]">
+                    {getDocumentsForDay(selectedDate).length === 0 ? (
+                        <div className="flex items-center justify-center h-20 text-xs text-muted-foreground">
+                            No items for this day
+                        </div>
+                    ) : (
+                        getDocumentsForDay(selectedDate).map((doc) => (
+                            <DatabaseItemCard
+                                key={doc.id}
+                                document={doc}
+                                tagOptions={tagOptions}
+                                onOpen={onOpenModal}
+                            />
+                        ))
+                    )}
+                </div>
             </div>
             {selectedDocumentId && (
                 <DocumentModal

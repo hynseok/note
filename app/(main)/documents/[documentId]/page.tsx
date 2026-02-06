@@ -50,7 +50,7 @@ export default function DocumentIdPage({
         params.then((p) => setDocumentId(p.documentId));
     }, [params]);
 
-    const [title, setTitle] = useState("Untitled");
+    const [title, setTitle] = useState("");
     const [icon, setIcon] = useState<string | null>(null);
     const [coverImage, setCoverImage] = useState<string | null>(null);
     const [content, setContent] = useState("");
@@ -113,7 +113,7 @@ export default function DocumentIdPage({
             const res = await fetch(`/api/documents/${documentId}`);
             if (!res.ok) return;
             const data = await res.json();
-            setTitle(data.title);
+            setTitle(data.title === "Untitled" ? "" : data.title);
             setIcon(data.icon);
             setCoverImage(data.coverImage);
             setContent(data.content);
@@ -210,7 +210,8 @@ export default function DocumentIdPage({
 
             // Update local state with remote changes
             if (update.changes.title !== undefined) {
-                setTitle(update.changes.title);
+                const newTitle = update.changes.title;
+                setTitle(newTitle === "Untitled" ? "" : newTitle);
             }
             if (update.changes.icon !== undefined) {
                 setIcon(update.changes.icon);
@@ -349,7 +350,7 @@ export default function DocumentIdPage({
         const res = await fetch(`/api/documents/${documentId}`);
         if (res.ok) {
             const data = await res.json();
-            setTitle(data.title);
+            setTitle(data.title === "Untitled" ? "" : data.title);
             setIcon(data.icon);
             setCoverImage(data.coverImage);
             setContent(data.content);
