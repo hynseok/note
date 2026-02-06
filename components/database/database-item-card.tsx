@@ -2,6 +2,7 @@ import { useState } from "react";
 import { FileIcon } from "lucide-react";
 import { DocumentModal } from "./document-modal";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 
 interface DatabaseItemCardProps {
@@ -46,6 +47,17 @@ export const DatabaseItemCard = ({ document, tagOptions = [], onOpen }: Database
                             {tag}
                         </Badge>
                     ))}
+                </div>
+            )}
+            {document.user && (
+                <div className="flex items-center gap-1 mt-2 pt-2 border-t border-neutral-100 dark:border-neutral-800">
+                    <Avatar className="h-4 w-4">
+                        <AvatarImage src={document.user.image} />
+                        <AvatarFallback className="text-[9px]">{document.user.name?.[0]}</AvatarFallback>
+                    </Avatar>
+                    <span className="text-[10px] text-muted-foreground truncate max-w-[100px]">
+                        {document.user.name}
+                    </span>
                 </div>
             )}
         </div>

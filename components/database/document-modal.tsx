@@ -37,6 +37,7 @@ export const DocumentModal = ({ documentId, isOpen, onClose }: DocumentModalProp
     const [tagOptions, setTagOptions] = useState<{ id: string; label: string; color: string }[]>([]);
     const [parentDocumentId, setParentDocumentId] = useState<string | null>(null);
     const [version, setVersion] = useState(1);
+    const [author, setAuthor] = useState<{ id: string; name: string | null; image: string | null } | null>(null);
 
     const [loading, setLoading] = useState(false);
 
@@ -55,6 +56,7 @@ export const DocumentModal = ({ documentId, isOpen, onClose }: DocumentModalProp
                     setCoverImage(data.coverImage);
                     setContent(data.content);
                     setVersion(data.version || 1);
+                    setAuthor(data.user);
                     try {
                         setProperties(data.properties ? JSON.parse(data.properties) : {});
                     } catch {
@@ -376,6 +378,7 @@ export const DocumentModal = ({ documentId, isOpen, onClose }: DocumentModalProp
                                         tagOptions={tagOptions}
                                         onUpdate={handlePropertyUpdate}
                                         onTagOptionsUpdate={handleTagOptionsUpdate}
+                                        author={author}
                                     />
                                 </div>
 

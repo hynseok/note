@@ -57,14 +57,7 @@ app.prepare().then(() => {
         transports: ['websocket', 'polling'],
     });
 
-    io.engine.on("connection_error", (err) => {
-        console.log("[Socket.IO] Connection error:", err.code, err.message);
-        // Log request details to debug "Bad request" issues (often missing query params due to proxy)
-        if (err.req) {
-            console.log("  - Request URL:", err.req.url);
-            console.log("  - Request Headers:", err.req.headers);
-        }
-    });
+
 
     // Import socket handler
     require('./lib/socket-server')(io);
@@ -77,6 +70,5 @@ app.prepare().then(() => {
         .listen(port, () => {
             console.log(`> Ready on http://${hostname}:${port}`);
             console.log(`> WebSocket server running`);
-            console.log(`> Socket.IO CORS Origin:`, dev ? 'http://localhost:3000' : process.env.NEXTAUTH_URL);
         });
 });

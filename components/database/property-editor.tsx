@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
-import { CalendarIcon, Tag, Plus, X, MoreHorizontal, Trash2, Check } from "lucide-react";
+import { CalendarIcon, Tag, Plus, X, MoreHorizontal, Trash2, Check, User } from "lucide-react";
 
 // ... existing imports ...
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 // ... inside PropertyEditor ...
 
@@ -43,9 +44,10 @@ interface PropertyEditorProps {
     tagOptions?: { id: string; label: string; color: string }[];
     onUpdate: (newProperties: any) => void;
     onTagOptionsUpdate?: (newOptions: { id: string; label: string; color: string }[]) => void;
+    author?: { id: string; name: string | null; image: string | null } | null;
 }
 
-export const PropertyEditor = ({ properties, tagOptions = [], onUpdate, onTagOptionsUpdate }: PropertyEditorProps) => {
+export const PropertyEditor = ({ properties, tagOptions = [], onUpdate, onTagOptionsUpdate, author }: PropertyEditorProps) => {
     const [date, setDate] = useState<Date | undefined>(
         properties?.date ? new Date(properties.date) : undefined
     );
@@ -165,6 +167,23 @@ export const PropertyEditor = ({ properties, tagOptions = [], onUpdate, onTagOpt
 
     return (
         <div className="flex flex-col gap-3 mb-6">
+            {/* Author Property */}
+            {author && (
+                <div className="flex items-center h-8">
+                    <div className="w-[140px] flex items-center gap-2 text-muted-foreground/80 shrink-0">
+                        <User className="h-4 w-4" />
+                        <span className="text-sm">Created by</span>
+                    </div>
+                    <div className="flex items-center gap-2 px-2 -ml-2">
+                        <Avatar className="h-5 w-5">
+                            <AvatarImage src={author.image || undefined} />
+                            <AvatarFallback className="text-[10px]">{author.name?.[0]}</AvatarFallback>
+                        </Avatar>
+                        <span className="text-sm text-neutral-700 dark:text-neutral-300">{author.name}</span>
+                    </div>
+                </div>
+            )}
+
             {/* Date Property */}
             <div className="flex items-center h-8">
                 <div className="w-[140px] flex items-center gap-2 text-muted-foreground/80 shrink-0">

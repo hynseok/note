@@ -135,12 +135,24 @@ export async function GET(
                 id: params.documentId,
             },
             include: {
+                user: {
+                    select: { id: true, name: true, image: true }
+                },
                 lastEditedBy: {
                     select: { id: true, name: true, image: true }
                 },
                 childDocuments: {
                     where: { isArchived: false },
-                    select: { id: true, title: true, icon: true, properties: true, isDatabase: true }
+                    select: {
+                        id: true,
+                        title: true,
+                        icon: true,
+                        properties: true,
+                        isDatabase: true,
+                        user: {
+                            select: { id: true, name: true, image: true }
+                        }
+                    }
                 },
                 parentDocument: {
                     select: {
