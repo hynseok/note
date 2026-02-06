@@ -261,7 +261,20 @@ export async function DELETE(
         }
 
         if (existingDocument.userId !== user.id) {
-            return new NextResponse("Unauthorized", { status: 401 });
+            // Check if user is the owner of the parent document (Admin rights over child)
+            let isParentOwner = false;
+            if (existingDocument.parentDocumentId) {
+                const parentDoc = await prismadb.document.findUnique({
+                    where: { id: existingDocument.parentDocumentId }
+                });
+                if (parentDoc && parentDoc.userId === user.id) {
+                    isParentOwner = true;
+                }
+            }
+
+            if (!isParentOwner) {
+                return new NextResponse("Unauthorized", { status: 401 });
+            }
         }
 
         // Notify all users in the document room before deletion
@@ -332,9 +345,20 @@ export async function PATCH(
 
         const isOwner = existingDocument.userId === user.id;
 
+        // Check if user is the owner OR parent owner
+        let isOwnerOrParentOwner = isOwner;
+        if (!isOwner && existingDocument.parentDocumentId) {
+            const parentDoc = await prismadb.document.findUnique({
+                where: { id: existingDocument.parentDocumentId }
+            });
+            if (parentDoc?.userId === user.id) {
+                isOwnerOrParentOwner = true;
+            }
+        }
+
         // Check if user is a collaborator with EDIT permission
-        let canEdit = isOwner;
-        if (!isOwner) {
+        let canEdit = isOwnerOrParentOwner;
+        if (!canEdit) {
             const collaborator = await prismadb.collaborator.findUnique({
                 where: {
                     documentId_userId: {
@@ -352,14 +376,14 @@ export async function PATCH(
             return new NextResponse("Unauthorized", { status: 401 });
         }
 
-        // Only owner can change certain properties
+        // Only owner (or parent owner) can change certain properties
         // Note: isDatabase is allowed for EDIT collaborators (view preference)
         const isOwnerOnlyAction = parentDocumentId !== undefined ||
             isPublished !== undefined ||
             isArchived !== undefined;
 
         // Restrict owner-only actions
-        if (isOwnerOnlyAction && !isOwner) {
+        if (isOwnerOnlyAction && !isOwnerOrParentOwner) {
             return new NextResponse("Unauthorized - Owner only action", { status: 401 });
         }
 

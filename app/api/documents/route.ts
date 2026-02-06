@@ -23,8 +23,9 @@ export async function POST(req: Request) {
             return new NextResponse("Unauthorized", { status: 401 });
         }
 
-        // Determine the actual owner - inherit from parent if it's a shared document
-        let ownerId = user.id;
+        // Determine the actual owner
+        let ownerId = user.id; // Created by current user
+        let parentOwnerId: string | null = null;
         let isCollaboratorCreating = false;
 
         if (parentDocumentId) {
@@ -32,23 +33,26 @@ export async function POST(req: Request) {
                 where: { id: parentDocumentId }
             });
 
-            if (parentDoc && parentDoc.userId !== user.id) {
-                // User is not the owner of the parent - check if collaborator with EDIT permission
-                const collaborator = await prismadb.collaborator.findUnique({
-                    where: {
-                        documentId_userId: {
-                            documentId: parentDocumentId,
-                            userId: user.id
+            if (parentDoc) {
+                if (parentDoc.userId !== user.id) {
+                    // User is not the owner of the parent - check if collaborator with EDIT permission
+                    const collaborator = await prismadb.collaborator.findUnique({
+                        where: {
+                            documentId_userId: {
+                                documentId: parentDocumentId,
+                                userId: user.id
+                            }
                         }
-                    }
-                });
+                    });
 
-                if (collaborator?.permission === "EDIT") {
-                    // Inherit owner from parent document
-                    ownerId = parentDoc.userId;
-                    isCollaboratorCreating = true;
-                } else {
-                    return new NextResponse("Unauthorized - Cannot create child documents", { status: 401 });
+                    if (collaborator?.permission === "EDIT") {
+                        // User allows to create, but they become the owner of this new child
+                        // We must add the parent owner as a collaborator so they can manage it
+                        parentOwnerId = parentDoc.userId;
+                        isCollaboratorCreating = true;
+                    } else {
+                        return new NextResponse("Unauthorized - Cannot create child documents", { status: 401 });
+                    }
                 }
             }
         }
@@ -57,7 +61,7 @@ export async function POST(req: Request) {
             data: {
                 title: title,
                 parentDocumentId: parentDocumentId,
-                userId: ownerId,
+                userId: ownerId, // Creator is the owner
                 isArchived: false,
                 isPublished: false,
                 isDatabase: isDatabase || false,
@@ -65,12 +69,12 @@ export async function POST(req: Request) {
             }
         });
 
-        // If collaborator created this, auto-share with them as EDIT
-        if (isCollaboratorCreating) {
+        // Use `isCollaboratorCreating` logic to add Parent Owner as collaborator
+        if (isCollaboratorCreating && parentOwnerId) {
             await prismadb.collaborator.create({
                 data: {
                     documentId: document.id,
-                    userId: user.id,
+                    userId: parentOwnerId,
                     permission: "EDIT"
                 }
             });
@@ -82,10 +86,10 @@ export async function POST(req: Request) {
                 where: { documentId: parentDocumentId }
             });
 
-            // Create collaborators for the new document (excluding the creating user if already added)
+            // Create collaborators for the new document
             for (const collab of parentCollaborators) {
-                // Skip if already added (isCollaboratorCreating case)
-                if (isCollaboratorCreating && collab.userId === user.id) {
+                // If the collaborator is the creator (user.id), they are already the owner, so skip
+                if (collab.userId === user.id) {
                     continue;
                 }
 
