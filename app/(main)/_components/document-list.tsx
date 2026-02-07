@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Item } from "./item";
@@ -7,12 +5,157 @@ import { cn } from "@/lib/utils";
 import { FileIcon, FileText } from "lucide-react";
 import { documentEvents, getActiveExpandIds } from "@/lib/events";
 
+import {
+    useDndMonitor,
+} from "@dnd-kit/core";
+import {
+    SortableContext,
+    verticalListSortingStrategy,
+    useSortable,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+
 interface Document {
     id: string;
     title: string;
     icon?: string;
-    // ... other fields
+    content?: string;
+    order: number;
 }
+
+const SortableDocumentItem = ({
+    document,
+    level,
+    expanded,
+    onExpand,
+    onRedirect,
+    active,
+    parentDocumentId
+}: {
+    document: Document;
+    level: number;
+    expanded: boolean;
+    onExpand: () => void;
+    onRedirect: () => void;
+    active: boolean;
+    parentDocumentId?: string;
+}) => {
+    const {
+        attributes,
+        listeners,
+        setNodeRef,
+        transform,
+        transition,
+        isDragging,
+    } = useSortable({
+        id: document.id,
+        data: {
+            type: "Document",
+            document: document,
+            parentId: parentDocumentId
+        }
+    });
+
+    const [dragState, setDragState] = useState<"top" | "bottom" | "center" | null>(null);
+
+    useDndMonitor({
+        onDragMove(event) {
+            const { active, over } = event;
+
+            // Only update if I am the target and not the one being dragged
+            if (over?.id === document.id && active.id !== document.id) {
+                if (!over.rect) return;
+
+                const activeRect = active.rect.current.translated;
+                if (!activeRect) return; // Happens initially
+
+                // Calculation should match Navigation.tsx logic exactly
+                // But Navigation uses activeCenterY. Here we use cursor or active rect?
+                // Actually event.active.rect.current.translated is reliable.
+
+                const activeCenterY = activeRect.top + (activeRect.height / 2);
+                const overRect = over.rect; // This is a rect from dnd-kit
+
+                const overTop = overRect.top;
+                const overHeight = overRect.height;
+
+                const relativeY = (activeCenterY - overTop) / overHeight;
+
+                if (relativeY < 0.25) {
+                    setDragState("top");
+                } else if (relativeY > 0.75) {
+                    setDragState("bottom");
+                } else {
+                    setDragState("center");
+                }
+            } else {
+                if (dragState !== null) setDragState(null);
+            }
+        },
+        onDragEnd() {
+            setDragState(null);
+        },
+        onDragCancel() {
+            setDragState(null);
+        }
+    });
+
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.5 : 1,
+    };
+
+    // Style adjustments based on dragState
+    // center -> bg-primary/10 (Nest)
+    // top -> border-t-2 border-primary
+    // bottom -> border-b-2 border-primary
+
+    return (
+        <div
+            ref={setNodeRef}
+            style={style}
+            {...attributes}
+            {...listeners}
+            className={cn(
+                "group relative select-none", // Added select-none to prevent text selection during drag
+                dragState === "center" && "bg-sky-500/20 text-sky-800 dark:text-sky-200"
+            )}
+        >
+            {/* Drop Indicator Lines */}
+            {dragState === "top" && (
+                <div className="absolute top-0 left-0 right-0 h-[2px] bg-sky-500 z-50" />
+            )}
+
+            <Item
+                id={document.id}
+                onClick={onRedirect}
+                label={document.title}
+                icon={
+                    (document as any).content && (document as any).content !== "" && (document as any).content !== "<p></p>"
+                        ? FileText
+                        : FileIcon
+                }
+                documentIcon={document.icon}
+                active={active}
+                level={level}
+                onExpand={onExpand}
+                expanded={expanded}
+            />
+
+            {dragState === "bottom" && (
+                <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-sky-500 z-50" />
+            )}
+
+            {expanded && (
+                <DocumentList
+                    parentDocumentId={document.id}
+                    level={level + 1}
+                />
+            )}
+        </div>
+    );
+};
 
 export const DocumentList = ({
     level = 0,
@@ -79,9 +222,7 @@ export const DocumentList = ({
                             ...doc,
                             title: payload.title !== undefined ? payload.title : doc.title,
                             icon: payload.icon !== undefined ? payload.icon : doc.icon,
-                            // Store content snippet or existence flag if passed, to update dynamic icon
-                            // For now we assume payload.content implies content exists if not empty
-                            content: payload.content !== undefined ? payload.content : (doc as any).content
+                            content: payload.content !== undefined ? payload.content : doc.content
                         } : doc
                     );
                 });
@@ -106,11 +247,17 @@ export const DocumentList = ({
                 return;
             }
 
+            // REFRESH event for DnD updates
+            if (payload && payload.type === "REFRESH") {
+                fetchDocuments();
+                return;
+            }
+
             fetchDocuments();
         });
 
         return () => unsubscribe();
-    }, [documents, parentDocumentId]); // Dependent on documents to fix closure
+    }, [documents, parentDocumentId]);
 
     const onRedirect = (documentId: string) => {
         router.push(`/documents/${documentId}`);
@@ -142,31 +289,23 @@ export const DocumentList = ({
             >
                 No pages inside
             </p>
-            {documents.map((doc) => (
-                <div key={doc.id}>
-                    <Item
-                        id={doc.id}
-                        onClick={() => onRedirect(doc.id)}
-                        label={doc.title}
-                        icon={
-                            (doc as any).content && (doc as any).content !== "" && (doc as any).content !== "<p></p>"
-                                ? FileText
-                                : FileIcon
-                        }
-                        documentIcon={doc.icon}
-                        active={params.documentId === doc.id}
+            <SortableContext
+                items={documents.map(doc => doc.id)}
+                strategy={verticalListSortingStrategy}
+            >
+                {documents.map((doc) => (
+                    <SortableDocumentItem
+                        key={doc.id}
+                        document={doc}
                         level={level}
-                        onExpand={() => onExpand(doc.id)}
                         expanded={expanded[doc.id]}
+                        onExpand={() => onExpand(doc.id)}
+                        onRedirect={() => onRedirect(doc.id)}
+                        active={params.documentId === doc.id}
+                        parentDocumentId={parentDocumentId}
                     />
-                    {expanded[doc.id] && (
-                        <DocumentList
-                            parentDocumentId={doc.id}
-                            level={level + 1}
-                        />
-                    )}
-                </div>
-            ))}
+                ))}
+            </SortableContext>
         </>
     );
 };

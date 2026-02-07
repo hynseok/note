@@ -57,6 +57,20 @@ export async function POST(req: Request) {
             }
         }
 
+        // Calculate order for the new document (append to bottom)
+        const lastDocument = await prismadb.document.findFirst({
+            where: {
+                userId: ownerId,
+                parentDocumentId: parentDocumentId,
+                isArchived: false
+            },
+            orderBy: {
+                order: "desc"
+            }
+        });
+
+        const newOrder = lastDocument ? lastDocument.order + 1 : 0;
+
         const document = await prismadb.document.create({
             data: {
                 title: title,
@@ -66,6 +80,7 @@ export async function POST(req: Request) {
                 isPublished: false,
                 isDatabase: isDatabase || false,
                 properties: properties ? JSON.stringify(properties) : undefined,
+                order: newOrder,
             }
         });
 
@@ -226,9 +241,10 @@ export async function GET(req: Request) {
 
         const documents = await prismadb.document.findMany({
             where: query,
-            orderBy: {
-                createdAt: "asc"
-            }
+            orderBy: [
+                { order: "asc" },
+                { createdAt: "asc" }
+            ]
         });
 
         return NextResponse.json(documents);

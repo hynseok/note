@@ -93,10 +93,8 @@ export const CalendarView = ({ documents, tagOptions = [], onMoveItem, onCreateI
             </div>
 
             {/* Calendar Grid */}
-            <div className={cn(
-                "flex-1 grid grid-cols-7 gap-px bg-neutral-200 dark:bg-neutral-800 rounded-lg overflow-hidden border border-neutral-200 dark:border-neutral-800",
-                days.length / 7 <= 5 ? "grid-rows-5" : "grid-rows-6"
-            )}>
+            {/* Calendar Grid */}
+            <div className="flex-1 grid grid-cols-7 gap-px bg-neutral-200 dark:bg-neutral-800 rounded-lg border border-neutral-200 dark:border-neutral-800">
                 {days.map((day) => {
                     const dayDocs = getDocumentsForDay(day);
                     const isCurrentMonth = isSameMonth(day, monthStart);
@@ -145,7 +143,7 @@ export const CalendarView = ({ documents, tagOptions = [], onMoveItem, onCreateI
                             </div>
 
                             {/* Desktop Items List */}
-                            <div className="hidden md:flex flex-col gap-1 mt-1 overflow-y-auto max-h-[100px]">
+                            <div className="hidden md:flex flex-col gap-1 mt-1">
                                 {dayDocs.map((doc) => (
                                     <div key={doc.id} onClick={(e) => e.stopPropagation()}>
                                         <DatabaseItemCard
