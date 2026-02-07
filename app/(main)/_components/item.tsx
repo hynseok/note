@@ -36,6 +36,7 @@ interface ItemProps {
     label: string;
     onClick?: () => void;
     icon: LucideIcon;
+    userId?: string;
 };
 
 export const Item = ({
@@ -51,6 +52,7 @@ export const Item = ({
     expanded,
     onDrop,
     dropEffect = "move",
+    userId,
 }: ItemProps & { onDrop?: (e: React.DragEvent, draggedId?: string) => void, dropEffect?: "move" | "copy" | "link" | "none" }) => {
     const { data: session } = useSession();
     const router = useRouter();
@@ -92,6 +94,11 @@ export const Item = ({
         e.dataTransfer.setData("application/x-privatenote-document-id", itemId);
         // Set as "sidebar" source to differentiate from editor drags
         e.dataTransfer.setData("application/x-privatenote-source", "sidebar");
+
+        if (userId) {
+            e.dataTransfer.setData("application/x-privatenote-owner-id", userId);
+        }
+
         e.dataTransfer.effectAllowed = "move";
     };
 
@@ -111,6 +118,7 @@ export const Item = ({
         setIsDragOver(false);
 
         let draggedId = e.dataTransfer.getData("application/x-privatenote-document-id");
+        const draggedOwnerId = e.dataTransfer.getData("application/x-privatenote-owner-id");
 
         // Fallback: try to extract from HTML (for editor drags)
         if (!draggedId) {
@@ -126,6 +134,23 @@ export const Item = ({
         // Custom onDrop handler if provided (e.g., for Trash)
         if (onDrop) {
             onDrop(e, draggedId);
+            return;
+        }
+
+        // Ownership Check
+        const currentUserId = (session?.user as any)?.id;
+
+        // Block moving if:
+        // 1. I don't own the note I'm dragging (already implemented)
+        // 2. I'm trying to drop into a note I don't own (Shared Section block)
+
+        if (draggedOwnerId && currentUserId && draggedOwnerId !== currentUserId) {
+            toast.error("You can only move notes that you own.");
+            return;
+        }
+
+        if (userId && currentUserId && userId !== currentUserId) {
+            toast.error("You cannot move notes into shared documents.");
             return;
         }
 

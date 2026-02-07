@@ -21,6 +21,7 @@ interface Document {
     icon?: string;
     content?: string;
     order: number;
+    userId: string;
 }
 
 const SortableDocumentItem = ({
@@ -141,6 +142,7 @@ const SortableDocumentItem = ({
                 level={level}
                 onExpand={onExpand}
                 expanded={expanded}
+                userId={document.userId}
             />
 
             {dragState === "bottom" && (

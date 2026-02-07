@@ -12,6 +12,7 @@ interface SharedDocument {
     title: string;
     icon: string | null;
     permission: string;
+    userId: string;
     childDocuments?: SharedDocument[];
 }
 
@@ -67,6 +68,7 @@ export const SharedList = () => {
                     level={level}
                     onExpand={hasChildren ? () => onExpand(doc.id) : undefined}
                     expanded={isExpanded}
+                    userId={doc.userId}
                 />
                 {isExpanded && hasChildren && (
                     <div>

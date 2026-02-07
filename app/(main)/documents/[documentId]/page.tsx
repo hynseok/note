@@ -199,6 +199,16 @@ export default function DocumentIdPage({
             fetchDocument();
         });
 
+        // Listen for Optimistic Link Deletion (from Sidebar DnD)
+        // This ensures immediate removal of the link when a child is moved out
+        const optimisticUnsubscribe = documentEvents.subscribe((payload: any) => {
+            if (payload.type === "OPTIMISTIC_LINK_DELETE") {
+                if (payload.parentId === documentId) {
+                    documentEvents.emit({ type: "DELETE", id: payload.childId });
+                }
+            }
+        });
+
         // Subscribe to WebSocket remote updates
         const unsubscribeSocket = subscribe((update) => {
             if (update.documentId !== documentId) return;
@@ -225,7 +235,14 @@ export default function DocumentIdPage({
             if (update.changes.coverImage !== undefined) {
                 setCoverImage(update.changes.coverImage);
             }
-            if (update.changes.content !== undefined) {
+            if (update.changes.childLeft) {
+                // Surgical removal via event
+                documentEvents.emit({ type: "DELETE", id: update.changes.childLeft });
+                // Update local state silently
+                if (update.changes.content !== undefined) {
+                    setContent(update.changes.content);
+                }
+            } else if (update.changes.content !== undefined) {
                 setContent(update.changes.content);
                 // Notify editor to update
                 documentEvents.emit({ type: "REMOTE_CONTENT_UPDATE", documentId, content: update.changes.content });

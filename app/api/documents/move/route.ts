@@ -56,6 +56,88 @@ export async function PATCH(req: Request) {
             }
         }
 
+        // Fetch original document to compare parent
+        const originalDoc = await prismadb.document.findUnique({
+            where: { id: id },
+            select: { parentDocumentId: true }
+        });
+
+        if (originalDoc && originalDoc.parentDocumentId && originalDoc.parentDocumentId !== parentId) {
+            // Document is being moved OUT of a parent. Remove the link from the old parent.
+            const oldParentId = originalDoc.parentDocumentId;
+            const oldParent = await prismadb.document.findUnique({
+                where: { id: oldParentId },
+                select: { id: true, content: true }
+            });
+
+            if (oldParent && oldParent.content) {
+                let newContent = oldParent.content;
+                let contentChanged = false;
+
+                const isJson = newContent.trim().startsWith("{");
+                if (isJson) {
+                    try {
+                        const json = JSON.parse(newContent);
+
+                        // Recursive function to remove node
+                        const removeNodeRecursive = (nodes: any[]): boolean => {
+                            let changed = false;
+                            for (let i = nodes.length - 1; i >= 0; i--) {
+                                const node = nodes[i];
+                                if (node.type === "pageLink" && node.attrs?.id === id) {
+                                    nodes.splice(i, 1);
+                                    changed = true;
+                                } else if (node.content && Array.isArray(node.content)) {
+                                    const childChanged = removeNodeRecursive(node.content);
+                                    if (childChanged) changed = true;
+                                }
+                            }
+                            return changed;
+                        };
+
+                        if (json.content && Array.isArray(json.content)) {
+                            // Check using recursive function
+                            contentChanged = removeNodeRecursive(json.content);
+
+                            if (contentChanged) {
+                                newContent = JSON.stringify(json);
+                            }
+                        }
+                    } catch (e) {
+                        console.error("Failed to parse old parent content", e);
+                    }
+                } else {
+                    // HTML/Text Fallback
+                    // Regex to remove <page-link id="ID" ...></page-link> or <page-link ... id="ID"></page-link>
+                    const regex = new RegExp(`<page-link[^>]*id="${id}"[^>]*>.*?</page-link>`, "g");
+                    if (regex.test(newContent)) {
+                        newContent = newContent.replace(regex, "");
+                        contentChanged = true;
+                    }
+                }
+
+                if (contentChanged) {
+                    await prismadb.document.update({
+                        where: { id: oldParentId },
+                        data: { content: newContent }
+                    });
+
+                    // Broadcast update for old parent
+                    const io = (global as any).io;
+                    if (io) {
+                        io.to(`document:${oldParentId}`).emit('remote-update', {
+                            documentId: oldParentId,
+                            changes: {
+                                content: newContent,
+                                childLeft: id // Signal that a child left, enabling surgical 'DELETE' event on frontend
+                            },
+                            version: Date.now()
+                        });
+                    }
+                }
+            }
+        }
+
         await prismadb.$transaction(async (tx) => {
             // 1. Shift items down to make space
             await tx.document.updateMany({

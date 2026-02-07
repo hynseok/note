@@ -25,19 +25,30 @@ export async function GET(req: Request) {
                     include: {
                         childDocuments: {
                             where: { isArchived: false },
-                            select: { id: true, title: true, icon: true }
+                            select: { id: true, title: true, icon: true, userId: true }
+                        },
+                        parentDocument: {
+                            select: { userId: true, id: true }
                         }
                     }
                 }
             }
         });
 
+        // Filter out documents where the current user is the owner of the parent document.
+        // Reason: If I own the parent, I already see this document in my main hierarchy.
+        // It shouldn't appear in "Shared with me" just because I was added as a collaborator (to give me edit rights on a child created by someone else).
+        const relevantSharedDocs = sharedDocs.filter(c => {
+            const parentOwnerId = c.document.parentDocument?.userId;
+            return parentOwnerId !== currentUser.id;
+        });
+
         // Build a hierarchy: only return root-level shared documents
         // (those whose parent is not in the shared set)
-        const sharedDocIds = new Set(sharedDocs.map(c => c.document.id));
+        const sharedDocIds = new Set(relevantSharedDocs.map(c => c.document.id));
 
         // Transform to include hierarchy info and permission
-        const documents = sharedDocs.map(c => ({
+        const documents = relevantSharedDocs.map(c => ({
             ...c.document,
             permission: c.permission,
             // Mark if this is a root in shared context (parent not shared with user)

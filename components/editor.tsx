@@ -187,35 +187,37 @@ export const Editor = ({
                 const { id } = payload;
                 if (!id || !editor) return;
 
-                // Find and remove the pageLink node with this ID
-                let posToDelete: { from: number, to: number } | null = null;
-
-                // Allow searching outside of edit mode to update view? 
-                // Actually editor instance exists even if !editable sometimes, but commands might be limited.
-                // Assuming specific to the active editor.
-
-                editor.state.doc.descendants((node, pos) => {
-                    if (node.type.name === 'pageLink' && node.attrs.id === id) {
-                        posToDelete = { from: pos, to: pos + node.nodeSize };
-                        return false; // Stop traversal
-                    }
-                });
-
-                if (posToDelete) {
-                    // Set flag to bypass protection plugin (which prevents deletion)
-                    if ((editor.storage as any).pageLink) {
-                        (editor.storage as any).pageLink.bypassProtection = true;
-                    }
-
-                    editor.commands.deleteRange(posToDelete);
-
-                    // Reset flag
-                    setTimeout(() => {
-                        if ((editor.storage as any).pageLink) {
-                            (editor.storage as any).pageLink.bypassProtection = false;
-                        }
-                    }, 50);
+                // Set flag to bypass protection plugin
+                if ((editor.storage as any).pageLink) {
+                    (editor.storage as any).pageLink.bypassProtection = true;
                 }
+
+                // Find and remove ALL pageLink nodes with this ID
+                // We iterate until no matches are found to handle multiple copies
+                let found = true;
+                while (found) {
+                    found = false;
+                    let posToDelete: { from: number, to: number } | null = null;
+
+                    editor.state.doc.descendants((node, pos) => {
+                        if (node.type.name === 'pageLink' && node.attrs.id === id) {
+                            posToDelete = { from: pos, to: pos + node.nodeSize };
+                            found = true;
+                            return false; // Stop traversal to delete this one, then loop again
+                        }
+                    });
+
+                    if (posToDelete) {
+                        editor.commands.deleteRange(posToDelete);
+                    }
+                }
+
+                // Reset flag
+                setTimeout(() => {
+                    if ((editor.storage as any).pageLink) {
+                        (editor.storage as any).pageLink.bypassProtection = false;
+                    }
+                }, 50);
             }
         });
 

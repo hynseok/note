@@ -221,7 +221,6 @@ export async function GET(req: Request) {
         const flatten = searchParams.get("flatten");
 
         let query: any = {
-            userId: user.id,
             isArchived: false,
         };
 
@@ -231,16 +230,105 @@ export async function GET(req: Request) {
 
         if (parentDocumentId) {
             query.parentDocumentId = parentDocumentId;
+            // For children, we want documents where:
+            // 1. Current user is the owner
+            // 2. OR Current user is a collaborator (which happens if someone else created it in our folder)
+            query.OR = [
+                { userId: user.id },
+                { collaborators: { some: { userId: user.id } } }
+            ];
+        } else {
+            // For root documents (Private List), strictly own documents only
+            if (!parentDocumentId && isArchived !== "true") {
+                query.parentDocumentId = null;
+            }
+            // Whatever happens, if it's a root fetch or general fetch without parentId, strictly user's own docs
+            // Unless it's search (flatten), but here flatten implies search across own docs usually?
+            // If flatten=true, it's usually for search. Let's keep it scoped to own docs for safety unless designed otherwise.
+            // But the request specifically asked for "Private section" children.
+
+            // To be safe and minimal change:
+            // Only relax restriction IF parentDocumentId is set.
+            if (!parentDocumentId) {
+                query.userId = user.id;
+            }
         }
 
         if (flatten === "true") {
             delete query.parentDocumentId;
-        } else if (!parentDocumentId && isArchived !== "true") {
-            query.parentDocumentId = null;
+            // If flatten is true, we probably still want only own docs? 
+            // Or shared ones too? Search usually includes shared.
+            // Let's assume flatten searches EVERYTHING accessible.
+            if (query.userId) {
+                // If it was restricted to userId, maybe we relax it for search?
+                // For now, let's keep search scoped to "My Private Docs" to avoid scope creep, 
+                // UNLESS user complains search is missing shared items.
+                // But the specific request is about "Child items in Private Section".
+            }
+        }
+
+        // Refined Logic to handle the specific "query.userId" removal safely:
+
+        const whereClause: any = {
+            isArchived: query.isArchived,
+        };
+
+        // If parentDocumentId is provided, we use the OR logic for ownership/collaboration
+        if (parentDocumentId) {
+            whereClause.parentDocumentId = parentDocumentId;
+            whereClause.OR = [
+                { userId: user.id },
+                { collaborators: { some: { userId: user.id } } }
+            ];
+        } else {
+            // Otherwise (Root level or Trash), restrict to own documents
+            whereClause.userId = user.id;
+
+            if (isArchived !== "true" && flatten !== "true") {
+                whereClause.parentDocumentId = null;
+            }
+        }
+
+        // Flatten override (Search)
+        if (flatten === "true") {
+            // If search, we generally want everything we have access to?
+            // But existing behavior was `userId: user.id`.
+            // Maintaining existing behavior for search for now to avoid regression.
+            // So if flatten is true, we use the `userId` constraint from the previous block?
+            // Actually, let's just stick to the specific fix for parentDocumentId.
+
+            // Re-evaluating the construction to be cleaner based on original code structure:
+        }
+
+        // Let's rewrite the query object construction cleanly.
+
+        const finalQuery: any = {
+            isArchived: isArchived === "true"
+        };
+
+        if (parentDocumentId) {
+            finalQuery.parentDocumentId = parentDocumentId;
+            // Allow Owner OR Collaborator
+            finalQuery.OR = [
+                { userId: user.id },
+                { collaborators: { some: { userId: user.id } } }
+            ];
+        } else {
+            // Root / Trash / Search (flatten) -> defaults to own docs
+            finalQuery.userId = user.id;
+
+            if (isArchived !== "true" && flatten !== "true") {
+                finalQuery.parentDocumentId = null;
+            }
+        }
+
+        if (flatten === "true") {
+            // Search mode: Remove hierarchy constraint
+            delete finalQuery.parentDocumentId;
         }
 
         const documents = await prismadb.document.findMany({
-            where: query,
+            where: finalQuery,
             orderBy: [
                 { order: "asc" },
                 { createdAt: "asc" }

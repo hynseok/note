@@ -27,6 +27,8 @@ import {
     useSensor,
     useSensors,
     DragEndEvent,
+    useDroppable,
+    pointerWithin,
 } from "@dnd-kit/core";
 import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 
@@ -51,10 +53,56 @@ export const Navigation = () => {
         })
     );
 
+    const TrashDropZone = ({ children }: { children: React.ReactNode }) => {
+        const { setNodeRef, isOver } = useDroppable({
+            id: "trash-drop-zone",
+        });
+
+        return (
+            <div
+                ref={setNodeRef}
+                className={cn(isOver && "bg-neutral-200 dark:bg-neutral-700 rounded-sm")}
+            >
+                {children}
+            </div>
+        );
+    };
+
     const handleDragEnd = async (event: DragEndEvent) => {
         const { active, over } = event;
 
         if (!over) return;
+
+        // Trash Drop Handling
+        if (over.id === "trash-drop-zone") {
+            const activeId = active.id as string;
+            const activeData = active.data.current;
+            const ownerId = activeData?.document?.userId;
+
+            // Ownership check is now handled by the backend to allow Parent Owners to delete child notes.
+            // The backend will return an error if the user is not the owner OR parent owner.
+
+            const promise = fetch(`/api/documents/${activeId}`, {
+                method: "PATCH",
+                body: JSON.stringify({ isArchived: true })
+            }).then(async (res) => {
+                if (res.ok) return res.json();
+                const errorMessage = await res.text();
+                throw new Error(errorMessage || "Failed to move note to trash");
+            });
+
+            toast.promise(promise, {
+                loading: "Moving note to trash...",
+                success: "Note moved to trash!",
+                error: (err) => err.message
+            });
+
+            promise.then(() => {
+                documentEvents.emit({ type: "DELETE", id: activeId });
+                router.refresh();
+            });
+            return;
+        }
 
         // Ensure we have the rects to calculate position
         if (!active.rect.current.translated || !over.rect) return;
@@ -90,69 +138,44 @@ export const Navigation = () => {
         try {
             if (isNesting) {
                 // REPARENTING: Move 'active' inside 'over'
-                // New parent = over.id
+                // Use PATCH only (removed problematic 'move' call)
 
-                // Prevent self-nesting or invalid nesting checks could be added here
+                // Ownership check for nesting target (Prevent dropping into Shared docs)
+                const currentUserId = (session?.user as any)?.id;
+                const targetUserId = overData.document?.userId;
 
-                await fetch('/api/documents/move', {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        id: activeId,
-                        targetId: overId, // Technically we are moving TO this ID as parent, but the move API logic uses targetId as "sibling". 
-                        // Wait, my previous 'move' API logic was "Insert active at target's order in parentId". 
-                        // That API is for reordering in a list.
-                        // I might need a simpler update for parenting.
+                if (targetUserId && currentUserId && targetUserId !== currentUserId) {
+                    toast.error("You cannot move notes into shared documents.");
+                    return;
+                }
 
-                        // Or reuse 'move' but with specific intent?
-
-                        // Actually, I can use the same `move` API I created? 
-                        // The `move` API takes { id, targetId, parentId }. 
-                        // If I pass parentId = newParent, it shifts items in NEW parent.
-                        // But I don't have a "targetId" (sibling) in the new parent if I just drop ON the folder.
-                        // I probably want to append to end, or start?
-
-                        // Let's use a standard `PATCH` to update parentDocumentId for nesting.
-                        // Then the list will auto-refresh.
-                    })
-                });
-
-                // Actually, I'll just use a direct update for nesting
                 await fetch(`/api/documents/${activeId}`, {
                     method: "PATCH",
                     body: JSON.stringify({ parentDocumentId: overId })
                 });
 
+                // Optimistic Update: Notify old parent to remove link
+                const oldParentId = activeData.parentId || null;
+                if (oldParentId && oldParentId !== overId) {
+                    documentEvents.emit({
+                        type: "OPTIMISTIC_LINK_DELETE",
+                        childId: activeId,
+                        parentId: oldParentId
+                    });
+                }
+
                 toast.success("Document moved inside");
             } else {
                 // REORDERING: Move 'active' relative to 'over'
-                // Target Parent = overData.parentId
-                // If relativeY < 0.5 (Top half) -> Insert Before (take over's order)
-                // If relativeY >= 0.5 (Bottom half) -> Insert After (take over's order + 1? No, just reordering logic handles it)
-
-                // My `move` API: 
-                // "Insert 'id' at 'destinationOrder', shifting others down".
-                // If I want to insert BEFORE 'over', I use over.order.
-                // If I want to insert AFTER 'over', I use over.order + 1?
-
-                // For simplicity and robustness with standard Sortable behavior:
-                // Use the generic reorder API if it's simple reordering?
-                // Or use my `move` API.
-
-                // Let's assume `move` API inserts AT target position (pushing target down).
-                // So "Insert Before" = targetId: overId.
-                // "Insert After" is harder if we don't have the next item ID.
-
-                // Simplified Reorder for now: Always insert "at" the position (Before).
-                // Users can drag below the item to insert before the *next* item.
-                // But if it's the last item?
-
-                // Let's simply trigger the backend "move" which does "insert before".
-                // If user drags to bottom of item, they usually drag to top of NEXT item.
-                // Exception: Last item.
-
-                // Let's stick to "Insert Before" logic which maps to `move` API.
                 const newParentId = overData.parentId || null;
+
+                // Ownership check for reordering target (Prevent dropping into Shared docs list)
+                // If I am reordering in a list, I am technically moving INTO the parent of that list.
+                // Assuming 'over' is in a list I can edit.
+                // Usually if I see it, I can reorder it?
+                // Shared docs list -> I can reorder? Maybe.
+                // But generally "move" API handles permission checks too if implemented.
+                // For now, let's allow reorder attempts, backend will reject if unauthorized.
 
                 await fetch('/api/documents/move', {
                     method: 'PATCH',
@@ -163,6 +186,18 @@ export const Navigation = () => {
                         parentId: newParentId
                     })
                 });
+
+                // Optimistic Update
+                const oldParentId = activeData.parentId || null;
+                const targetParentId = newParentId || null;
+
+                if (oldParentId && oldParentId !== targetParentId) {
+                    documentEvents.emit({
+                        type: "OPTIMISTIC_LINK_DELETE",
+                        childId: activeId,
+                        parentId: oldParentId
+                    });
+                }
 
                 toast.success("Document reordered");
             }
@@ -278,6 +313,9 @@ export const Navigation = () => {
     const handleTrashDrop = (e: React.DragEvent, draggedId?: string) => {
         if (!draggedId) return;
 
+        // Ownership check is now handled by the backend to allow Parent Owners to delete child notes.
+        // The backend will return an error if the user is not the owner OR parent owner.
+
         const promise = fetch(`/api/documents/${draggedId}`, {
             method: "PATCH",
             body: JSON.stringify({ isArchived: true })
@@ -354,32 +392,37 @@ export const Navigation = () => {
                         </div>
                         <DndContext
                             sensors={sensors}
-                            collisionDetection={closestCenter}
+                            collisionDetection={pointerWithin}
                             onDragEnd={handleDragEnd}
                         >
                             <DocumentList />
+
+                            <Item
+                                label="New Page"
+                                icon={Plus}
+                                onClick={handleCreate}
+                            />
+                            <SharedList />
+                            <Popover modal={true}>
+                                <PopoverTrigger className="w-full mt-4">
+                                    <TrashDropZone>
+                                        <div className="w-full">
+                                            <Item
+                                                label="Trash"
+                                                icon={Trash}
+                                                onDrop={handleTrashDrop}
+                                            />
+                                        </div>
+                                    </TrashDropZone>
+                                </PopoverTrigger>
+                                <PopoverContent
+                                    className="p-0 w-72"
+                                    side="right"
+                                >
+                                    <TrashBox />
+                                </PopoverContent>
+                            </Popover>
                         </DndContext>
-                        <Item
-                            label="New Page"
-                            icon={Plus}
-                            onClick={handleCreate}
-                        />
-                        <SharedList />
-                        <Popover modal={true}>
-                            <PopoverTrigger className="w-full mt-4">
-                                <Item
-                                    label="Trash"
-                                    icon={Trash}
-                                    onDrop={handleTrashDrop}
-                                />
-                            </PopoverTrigger>
-                            <PopoverContent
-                                className="p-0 w-72"
-                                side="right"
-                            >
-                                <TrashBox />
-                            </PopoverContent>
-                        </Popover>
                     </div>
                 </div>
                 {!isMobile && (

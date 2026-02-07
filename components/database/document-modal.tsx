@@ -98,7 +98,13 @@ export const DocumentModal = ({ documentId, isOpen, onClose }: DocumentModalProp
                 }
                 if (update.changes.icon !== undefined) setIcon(update.changes.icon);
                 if (update.changes.coverImage !== undefined) setCoverImage(update.changes.coverImage);
-                if (update.changes.content !== undefined) {
+                if (update.changes.childLeft) {
+                    // Surgical removal via event
+                    documentEvents.emit({ type: "DELETE", id: update.changes.childLeft });
+                    if (update.changes.content !== undefined) {
+                        setContent(update.changes.content);
+                    }
+                } else if (update.changes.content !== undefined) {
                     setContent(update.changes.content);
                     // Emit event for Editor component to pick up if needed, though we pass content directly
                     // The Editor component needs to handle this prop change or event
@@ -117,6 +123,21 @@ export const DocumentModal = ({ documentId, isOpen, onClose }: DocumentModalProp
             };
         }
     }, [isOpen, documentId, joinDocument, leaveDocument, subscribe]);
+
+    // Optimistic listener must be outside the main effect or handled appropriately
+    useEffect(() => {
+        if (!isOpen || !documentId) return;
+
+        const unsubscribe = documentEvents.subscribe((payload: any) => {
+            if (payload.type === "OPTIMISTIC_LINK_DELETE") {
+                if (payload.parentId === documentId) {
+                    documentEvents.emit({ type: "DELETE", id: payload.childId });
+                }
+            }
+        });
+
+        return () => unsubscribe();
+    }, [isOpen, documentId]);
 
     // Update Logic with WebSocket broadcast
     const updateDocument = async (values: { title?: string; content?: string; icon?: string | null; coverImage?: string | null }) => {
