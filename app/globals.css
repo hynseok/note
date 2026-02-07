@@ -299,6 +299,33 @@ body {
   transition: color 0.2s ease;
 }
 
+/* Notion-like Inline Code Styles - controlled via Editor extension classes now */
+/*
+.prose code {
+  color: #EB5757;
+  background-color: rgba(135, 131, 120, 0.15);
+  padding: 0.2em 0.4em;
+  border-radius: 3px;
+  font-size: 85%;
+  font-family: var(--font-mono);
+  font-weight: normal;
+}
+
+.dark .prose code {
+  color: #FF7070;
+  background-color: rgba(255, 255, 255, 0.13);
+}
+*/
+
+/* Remove default backticks added by Tailwind Typography */
+.prose :where(code)::before {
+  content: none !important;
+}
+
+.prose :where(code)::after {
+  content: none !important;
+}
+
 /* If the list item contains an empty paragraph or just a break, make it gray */
 .prose ul>li:has(> p:empty)::marker,
 .prose ul>li:has(> p > br:only-child)::marker {
@@ -312,9 +339,61 @@ body {
   color: #404040;
 }
 
+/* Remove top margin from first element */
 .prose> :first-child {
   margin-top: 0 !important;
-  /* Remove top margin from first element */
+}
+
+/* Tiptap Task List Fixes */
+ul[data-type="taskList"] {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+/* Force remove markers from prose */
+.prose ul[data-type="taskList"]>li::marker {
+  content: none;
+  display: none;
+}
+
+/* Flex layout for the list item */
+ul[data-type="taskList"] li {
+  display: flex !important;
+  align-items: flex-start;
+  gap: 8px;
+  /* Space between checkbox and text */
+  margin-top: 4px;
+  margin-bottom: 4px;
+  padding-left: 4px;
+  /* Slight indentation */
+}
+
+/* Checkbox specific adjustment */
+ul[data-type="taskList"] li>label {
+  margin-top: 4px;
+  /* Visual alignment with text baseline line-height 1.7 */
+  user-select: none;
+  flex-shrink: 0;
+  margin-right: 0;
+  /* Clear default margins */
+}
+
+/* Content container */
+ul[data-type="taskList"] li>div {
+  flex: 1;
+  margin: 0 !important;
+  min-width: 0;
+  /* Allow text wrapping */
+}
+
+/* Paragraph inside the task item */
+ul[data-type="taskList"] li>div>p {
+  margin: 0 !important;
+  line-height: 1.7;
+  /* Match prose line-height */
+  display: inline-block;
+  /* Ensure it behaves nicely */
 }
 
 /* Block Hover Effect */

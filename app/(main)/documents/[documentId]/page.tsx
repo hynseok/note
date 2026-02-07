@@ -1,7 +1,7 @@
 "use client";
 
 import { Editor } from "@/components/editor";
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import TextareaAutosize from "react-textarea-autosize";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -66,16 +66,22 @@ export default function DocumentIdPage({
     const { moveItem, createItem } = useDatabase(documentId);
     const { subscribe, broadcastUpdate, joinDocument, leaveDocument, isConnected } = useDocumentSync();
 
+    // Use a ref for version to avoid stale closures in the debounced function
+    const versionRef = useRef(version);
+    useEffect(() => {
+        versionRef.current = version;
+    }, [version]);
+
     // Debounced update function with version control and WebSocket broadcast
     const updateDocument = useMemo(
         () =>
-            debounce(async (values: { title?: string; content?: string; icon?: string | null; coverImage?: string | null }, currentVersion?: number) => {
+            debounce(async (values: { title?: string; content?: string; icon?: string | null; coverImage?: string | null }) => {
                 if (!documentId) return;
 
                 try {
                     const response = await fetch(`/api/documents/${documentId}`, {
                         method: "PATCH",
-                        body: JSON.stringify({ ...values, version: currentVersion || version }),
+                        body: JSON.stringify({ ...values, version: versionRef.current }),
                         headers: { 'Content-Type': 'application/json' },
                         keepalive: true
                     });
@@ -102,7 +108,7 @@ export default function DocumentIdPage({
                     toast.error("Failed to save changes");
                 }
             }, 200),
-        [documentId, version, broadcastUpdate]
+        [documentId, broadcastUpdate]
     );
 
     // Fetch initial data
@@ -458,6 +464,9 @@ export default function DocumentIdPage({
                                 disabled={!canEdit}
                                 onKeyDown={(e) => {
                                     if (e.key === "Enter") {
+                                        if (e.nativeEvent.isComposing) {
+                                            return;
+                                        }
                                         e.preventDefault();
                                         const editor = document.querySelector('.ProseMirror') as HTMLElement;
                                         if (editor) {

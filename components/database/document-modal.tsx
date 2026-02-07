@@ -374,6 +374,22 @@ export const DocumentModal = ({ documentId, isOpen, onClose }: DocumentModalProp
                                     <TextareaAutosize
                                         value={title}
                                         onChange={handleTitleInputChange}
+                                        onKeyDown={(e) => {
+                                            if (e.key === "Enter") {
+                                                if (e.nativeEvent.isComposing) {
+                                                    return;
+                                                }
+                                                e.preventDefault();
+                                                // Find the editor within this dialog
+                                                const dialog = e.currentTarget.closest('[role="dialog"]');
+                                                if (dialog) {
+                                                    const editor = dialog.querySelector('.ProseMirror') as HTMLElement;
+                                                    if (editor) {
+                                                        editor.focus();
+                                                    }
+                                                }
+                                            }
+                                        }}
                                         className="w-full text-4xl font-bold bg-transparent outline-none resize-none placeholder:text-muted-foreground/50 border-none px-0 py-2 break-words text-[#3F3F3F] dark:text-[#CFCFCF]"
                                         placeholder="Untitled"
                                     />

@@ -35,6 +35,11 @@ export const Editor = ({
                     color: "#0096FF",
                     width: 2,
                 },
+                code: {
+                    HTMLAttributes: {
+                        class: 'rounded-md bg-muted px-[0.3rem] py-[0.2rem] font-mono font-medium text-destructive',
+                    },
+                },
             }),
             TaskList,
             TaskItem.configure({
