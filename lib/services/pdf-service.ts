@@ -47,8 +47,14 @@ export class PDFService {
      */
     static async extractText(relativePath: string): Promise<string> {
         // Security: Ensure path is within public/uploads and prevent traversal
-        const uploadDir = path.join(process.cwd(), "public");
-        const fullPath = path.join(uploadDir, relativePath); // relativePath usually starts with /uploads/
+        const uploadDir = path.join(process.cwd(), "public", "uploads");
+
+        // Handle both /uploads/filename and /api/files/filename
+        let filename = relativePath.split('/').pop() || "";
+        // Remove query params if any
+        filename = filename.split('?')[0];
+
+        const fullPath = path.join(uploadDir, filename);
 
         // Validate that fullPath starts with uploadDir (basic traversal check)
         if (!fullPath.startsWith(uploadDir)) {

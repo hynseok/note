@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
         await writeFile(filepath, buffer);
 
         // Return the public URL
-        const url = `/uploads/${filename}`;
+        const url = `/api/files/${filename}`;
 
         return NextResponse.json({ url });
     } catch (error) {
