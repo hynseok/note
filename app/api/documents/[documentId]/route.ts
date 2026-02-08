@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import prismadb from "@/lib/prismadb";
 import { authOptions } from "@/lib/auth";
+import fs from "fs";
+import path from "path";
 
 // Helper to check if targetId is an ancestor of documentId (prevents circular moves)
 async function isAncestor(documentId: string, targetId: string): Promise<boolean> {
@@ -25,6 +27,57 @@ async function isAncestor(documentId: string, targetId: string): Promise<boolean
     }
 
     return false;
+}
+
+// Helper to delete attached files from filesystem
+function deleteAttachedFiles(content: string | null) {
+    if (!content) return;
+
+    try {
+        const isJson = content.trim().startsWith("{");
+        const filePaths: string[] = [];
+
+        if (isJson) {
+            const contentJson = JSON.parse(content);
+
+            const extractFiles = (nodes: any[]) => {
+                for (const node of nodes) {
+                    if (node.type === "fileAttachment" && node.attrs?.src) {
+                        filePaths.push(node.attrs.src);
+                    }
+                    if (node.content) {
+                        extractFiles(node.content);
+                    }
+                }
+            };
+
+            if (contentJson.content) {
+                extractFiles(contentJson.content);
+            }
+        } else {
+            // HTML fallback
+            // Regex to find src (or data-src) in file-attachment divs
+            // <div ... data-type="file-attachment" ... data-src="/uploads/..." ... >
+            const regex = /data-src="([^"]+)"/g;
+            let match;
+            while ((match = regex.exec(content)) !== null) {
+                filePaths.push(match[1]);
+            }
+        }
+
+        for (const filePath of filePaths) {
+            // Check if it is a local upload (starts with /uploads/)
+            if (filePath.startsWith("/uploads/")) {
+                const absolutePath = path.join(process.cwd(), "public", filePath);
+                if (fs.existsSync(absolutePath)) {
+                    fs.unlinkSync(absolutePath);
+                    console.log(`[DELETE_FILE] Deleted attached file: ${absolutePath}`);
+                }
+            }
+        }
+    } catch (e) {
+        console.error("[DELETE_ATTACHED_FILES] Failed to delete files", e);
+    }
 }
 
 // Helper to update parent content (add/remove/update pageLink)
@@ -97,13 +150,10 @@ async function updateParentContent(parentId: string, childId: string, action: 'a
                     newContent = newContent + linkBlock;
                 }
             } else if (action === 'update' && childData) {
-                // Regex update is tricky for robustness, but we try best effort for title
-                // Assuming format: <page-link id="CHILD_ID" ... title="OLD_TITLE" ... >
                 if (childData.title) {
                     const regex = new RegExp(`(<page-link[^>]*id="${childId}"[^>]*title=")([^"]*)(")`, 'g');
                     newContent = newContent.replace(regex, `$1${childData.title}$3`);
                 }
-                // Icon update in HTML string is hard without parsing, simplified to title only for HTML fallback
             }
 
             if (newContent !== currentContent) {
@@ -196,7 +246,6 @@ export async function GET(
         const isOwner = document.userId === user.id;
         const isPublished = document.isPublished;
 
-        // Check if user is a collaborator
         let collaboratorPermission: string | null = null;
         if (!isOwner) {
             const collaborator = await prismadb.collaborator.findUnique({
@@ -212,12 +261,10 @@ export async function GET(
             }
         }
 
-        // Allow access if owner, collaborator, or published
         if (!isOwner && !collaboratorPermission && !isPublished) {
             return new NextResponse("Unauthorized", { status: 401 });
         }
 
-        // Determine permission level
         let currentUserPermission = "READ";
         if (isOwner) {
             currentUserPermission = "OWNER";
@@ -261,7 +308,6 @@ export async function DELETE(
         }
 
         if (existingDocument.userId !== user.id) {
-            // Check if user is the owner of the parent document (Admin rights over child)
             let isParentOwner = false;
             if (existingDocument.parentDocumentId) {
                 const parentDoc = await prismadb.document.findUnique({
@@ -283,6 +329,11 @@ export async function DELETE(
             const roomName = `document:${params.documentId}`;
             io.to(roomName).emit('document-deleted', { documentId: params.documentId });
             console.log(`[Socket.IO] Document deleted notification sent for ${params.documentId}`);
+        }
+
+        // Delete attached files from filesystem
+        if (existingDocument.content) {
+            deleteAttachedFiles(existingDocument.content);
         }
 
         const document = await prismadb.document.delete({

@@ -6,7 +6,7 @@ import { existsSync } from "fs";
 
 const UPLOAD_DIR = join(process.cwd(), "public", "uploads");
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
-const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp", "application/pdf"];
 
 export async function POST(request: NextRequest) {
     try {
@@ -21,12 +21,12 @@ export async function POST(request: NextRequest) {
         }
 
         // Validate file type
-        if (!ALLOWED_TYPES.includes(file.type)) {
-            return NextResponse.json(
-                { error: "Invalid file type. Allowed: JPEG, PNG, GIF, WebP" },
-                { status: 400 }
-            );
-        }
+        // if (!ALLOWED_TYPES.includes(file.type)) {
+        //     return NextResponse.json(
+        //         { error: "Invalid file type. Allowed: JPEG, PNG, GIF, WebP" },
+        //         { status: 400 }
+        //     );
+        // }
 
         // Validate file size
         if (file.size > MAX_FILE_SIZE) {

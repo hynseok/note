@@ -9,17 +9,7 @@ import { documentEvents } from "@/lib/events";
 
 import { Spinner } from "@/components/spinner";
 import { Input } from "@/components/ui/input";
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+import { ConfirmModal } from "@/components/modals/confirm-modal";
 
 // Inline Spinner if not exists (usually in components/spinner.tsx)
 // Inline ConfirmModal if not exists
@@ -137,33 +127,14 @@ export const TrashBox = () => {
                             >
                                 <Undo className="h-4 w-4 text-muted-foreground" />
                             </div>
-                            <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                    <div
-                                        role="button"
-                                        className="rounded-sm p-2 hover:bg-neutral-200 dark:hover:bg-neutral-600"
-                                    >
-                                        <Trash className="h-4 w-4 text-muted-foreground" />
-                                    </div>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                                        <AlertDialogDescription>
-                                            This action cannot be hidden. This will permanently delete the note.
-                                        </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                        <AlertDialogCancel onClick={(e: React.MouseEvent) => e.stopPropagation()}>Cancel</AlertDialogCancel>
-                                        <AlertDialogAction onClick={(e: React.MouseEvent) => {
-                                            e.stopPropagation();
-                                            onRemove(doc.id);
-                                        }}>
-                                            Confirm
-                                        </AlertDialogAction>
-                                    </AlertDialogFooter>
-                                </AlertDialogContent>
-                            </AlertDialog>
+                            <ConfirmModal onConfirm={() => onRemove(doc.id)}>
+                                <div
+                                    role="button"
+                                    className="rounded-sm p-2 hover:bg-neutral-200 dark:hover:bg-neutral-600"
+                                >
+                                    <Trash className="h-4 w-4 text-muted-foreground" />
+                                </div>
+                            </ConfirmModal>
                         </div>
                     </div>
                 ))}

@@ -9,6 +9,7 @@ import { PageLink } from "./editor/extensions/page-link";
 import { Image } from "./editor/extensions/image";
 import { Bookmark } from "./editor/extensions/bookmark";
 import { DragAndDropHandler } from "./editor/extensions/drag-and-drop-handler";
+import { FileAttachment } from "./editor/extensions/file-attachment";
 import { SlashCommand, getSuggestionItems, renderItems } from "./editor/slash-command";
 import { useEffect, useCallback } from "react";
 import { BlockMenu } from "./editor/block-menu";
@@ -53,6 +54,7 @@ export const Editor = ({
             Image,
             Bookmark,
             DragAndDropHandler,
+            FileAttachment,
             SlashCommand.configure({
                 suggestion: {
                     items: ({ query }: { query: string }) => getSuggestionItems({ query }),
@@ -99,6 +101,48 @@ export const Editor = ({
                     }
                 }
                 return false;
+            },
+            handlePaste: (view, event) => {
+                const text = event.clipboardData?.getData('text/plain');
+                const html = event.clipboardData?.getData('text/html');
+
+                // If no HTML but we have text that looks like markdown, parse it
+                if (!html && text) {
+                    const isMarkdown = /^(#|\*|- |>|`)/m.test(text);
+                    if (isMarkdown) {
+                        event.preventDefault(); // Prevent default paste immediately
+
+                        // Dynamically import to avoid circular dependency
+                        import("@/lib/markdown-parser").then(({ parseMarkdownToHTML }) => {
+                            const parsedHTML = parseMarkdownToHTML(text);
+
+                            // Parse HTML to ProseMirror Node
+                            const parser = new DOMParser();
+                            const doc = parser.parseFromString(parsedHTML, 'text/html');
+                            import("@tiptap/pm/model").then(({ DOMParser: PMDOMParser }) => {
+                                const fragment = PMDOMParser.fromSchema(view.state.schema).parseSlice(doc.body);
+                                view.dispatch(view.state.tr.replaceSelection(fragment));
+                            });
+                        }).catch(e => {
+                            console.error("Markdown paste failed", e);
+                            // Fallback: insert as text?
+                            view.dispatch(view.state.tr.insertText(text));
+                        });
+                        return true;
+                    }
+                }
+                return false;
+            },
+            transformPastedHTML: (html) => {
+                return html;
+            },
+            transformPastedText: (text) => {
+                // This might be a better place?
+                // converting markdown text to HTML here?
+                // if we return HTML string, does Tiptap parse it?
+                // transformPastedText returns string.
+                // If we return HTML string, Tiptap might escape it if it expects text.
+                return text;
             }
         }
     });

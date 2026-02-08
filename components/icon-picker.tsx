@@ -24,7 +24,7 @@ export const IconPicker = ({
     const currentTheme = (theme === "system" ? "light" : theme) as Theme;
 
     return (
-        <Popover>
+        <Popover modal={true}>
             <PopoverTrigger asChild={asChild}>
                 {children}
             </PopoverTrigger>

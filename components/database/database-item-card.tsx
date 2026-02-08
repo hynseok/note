@@ -32,9 +32,9 @@ export const DatabaseItemCard = ({ document, tagOptions = [], onOpen }: Database
         >
             <div className="flex items-center gap-2">
                 {document.icon ? (
-                    <span className="text-lg">{document.icon}</span>
+                    <span className="text-lg shrink-0">{document.icon}</span>
                 ) : (
-                    <FileIcon className="h-4 w-4 text-muted-foreground" />
+                    <FileIcon className="h-4 w-4 text-muted-foreground shrink-0" />
                 )}
                 <span className="truncate font-medium text-neutral-700 dark:text-neutral-200 text-sm">
                     {document.title || "Untitled"}
