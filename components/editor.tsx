@@ -1,16 +1,21 @@
 "use client";
 
-import { useEditor, EditorContent } from "@tiptap/react";
+import { useEditor, EditorContent, Tiptap } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
 import Link from "@tiptap/extension-link";
+import Highlight from "@tiptap/extension-highlight";
+import { BubbleMenu as BubbleMenuExtension } from "@tiptap/extension-bubble-menu";
+
 import { PageLink } from "./editor/extensions/page-link";
 import { Image } from "./editor/extensions/image";
 import { Bookmark } from "./editor/extensions/bookmark";
 import { DragAndDropHandler } from "./editor/extensions/drag-and-drop-handler";
 import { FileAttachment } from "./editor/extensions/file-attachment";
 import { SlashCommand, getSuggestionItems, renderItems } from "./editor/slash-command";
+import { EditorBubbleMenu } from "./editor/bubble-menu";
+
 import { useEffect, useCallback } from "react";
 import { BlockMenu } from "./editor/block-menu";
 import { LinkPastePopup } from "./editor/link-paste-popup";
@@ -61,6 +66,10 @@ export const Editor = ({
                     render: renderItems,
                 },
             }),
+            Highlight.configure({
+                multicolor: true,
+            }),
+            BubbleMenuExtension,
         ],
         content: (() => {
             if (typeof initialContent === 'string') {
@@ -132,17 +141,6 @@ export const Editor = ({
                     }
                 }
                 return false;
-            },
-            transformPastedHTML: (html) => {
-                return html;
-            },
-            transformPastedText: (text) => {
-                // This might be a better place?
-                // converting markdown text to HTML here?
-                // if we return HTML string, does Tiptap parse it?
-                // transformPastedText returns string.
-                // If we return HTML string, Tiptap might escape it if it expects text.
-                return text;
             }
         }
     });
@@ -237,7 +235,6 @@ export const Editor = ({
                 }
 
                 // Find and remove ALL pageLink nodes with this ID
-                // We iterate until no matches are found to handle multiple copies
                 let found = true;
                 while (found) {
                     found = false;
@@ -247,7 +244,7 @@ export const Editor = ({
                         if (node.type.name === 'pageLink' && node.attrs.id === id) {
                             posToDelete = { from: pos, to: pos + node.nodeSize };
                             found = true;
-                            return false; // Stop traversal to delete this one, then loop again
+                            return false;
                         }
                     });
 
@@ -273,10 +270,13 @@ export const Editor = ({
     }
 
     return (
-        <div className="w-full h-full min-h-[50vh] relative group/editor" onClick={() => editor.chain().focus().run()}>
-            {editable && <BlockMenu editor={editor} />}
-            {editable && <LinkPastePopup editor={editor} />}
-            <EditorContent editor={editor} className="h-full" />
-        </div>
+        <Tiptap instance={editor}>
+            <div className="w-full h-full min-h-[50vh] relative group/editor" onClick={() => editor.chain().focus().run()}>
+                {editable && <BlockMenu editor={editor} />}
+                {editable && <LinkPastePopup editor={editor} />}
+                {editable && <EditorBubbleMenu />}
+                <EditorContent editor={editor} className="h-full" />
+            </div>
+        </Tiptap>
     );
 };
