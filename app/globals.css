@@ -448,3 +448,9 @@ ul[data-type="taskList"] li>div>p {
 .dark .page-link-block:hover {
   background-color: rgba(255, 255, 255, 0.05);
 }
+
+/* Custom Highlight Toned Down (User Request) */
+.dark .prose mark {
+  /* Toned down yellow (Yellow-400 with 30% opacity) */
+  background-color: rgba(255, 210, 0, 0.92);
+}

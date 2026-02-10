@@ -43,7 +43,7 @@ export const Editor = ({
                 },
                 code: {
                     HTMLAttributes: {
-                        class: 'rounded-md bg-muted px-[0.3rem] py-[0.2rem] font-mono font-medium text-destructive',
+                        class: 'rounded-md bg-muted px-[0.3rem] py-[0.2rem] font-mono font-medium text-destructive dark:text-red-400',
                     },
                 },
             }),
