@@ -4,17 +4,22 @@ import { Node, mergeAttributes } from "@tiptap/core";
 import { ReactNodeViewRenderer, NodeViewWrapper } from "@tiptap/react";
 import { NodeSelection, TextSelection, Plugin, PluginKey, Transaction, EditorState } from "@tiptap/pm/state";
 import { FileIcon } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
 const PageLinkComponent = ({ node, updateAttributes, getPos, editor }: any) => {
     const router = useRouter();
+    const pathname = usePathname();
+    const [isPublished, setIsPublished] = useState(false);
+
     useEffect(() => {
         const fetchDocument = async () => {
             try {
                 const response = await fetch(`/api/documents/${node.attrs.id}`);
                 if (response.ok) {
                     const doc = await response.json();
+
+                    setIsPublished(doc.isPublished);
 
                     // Only update if changes detected, to avoid loops
                     if (doc.title !== node.attrs.title || doc.icon !== node.attrs.icon) {
@@ -43,7 +48,7 @@ const PageLinkComponent = ({ node, updateAttributes, getPos, editor }: any) => {
         };
 
         fetchDocument();
-    }, [node.attrs.id, node.attrs.title, node.attrs.icon, updateAttributes]);
+    }, [node.attrs.id, node.attrs.title, node.attrs.icon, updateAttributes, editor]);
 
     // Render directly from attributes - this ensures real-time updates from editor appear immediately
     const title = node.attrs.title;
@@ -73,7 +78,11 @@ const PageLinkComponent = ({ node, updateAttributes, getPos, editor }: any) => {
                 draggable="true"
                 onDragStart={handleDragStart}
                 onClick={() => {
-                    router.push(`/documents/${node.attrs.id}`);
+                    if (pathname?.startsWith("/preview") && isPublished) {
+                        window.open(`/preview/${node.attrs.id}`, "_blank");
+                    } else {
+                        router.push(`/documents/${node.attrs.id}`);
+                    }
                 }}
                 className="flex items-center gap-1 p-1 px-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-sm cursor-pointer transition-colors w-full"
             >

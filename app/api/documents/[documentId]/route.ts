@@ -176,10 +176,6 @@ export async function GET(
     try {
         const session = await getServerSession(authOptions);
 
-        if (!session?.user?.email) {
-            return new NextResponse("Unauthorized", { status: 401 });
-        }
-
         const document = await prismadb.document.findUnique({
             where: {
                 id: params.documentId,
@@ -235,16 +231,28 @@ export async function GET(
             }
         });
 
-        const user = await prismadb.user.findUnique({ where: { email: session.user.email } });
-
-        if (!user) return new NextResponse("Unauthorized", { status: 401 });
-
         if (!document) {
             return new NextResponse("Not Found", { status: 404 });
         }
 
+        if (document.isPublished && !document.isArchived) {
+            return NextResponse.json({
+                ...document,
+                currentUserPermission: "READ", // Default for public access
+                version: document.version,
+                lastSyncedAt: document.lastSyncedAt
+            });
+        }
+
+        if (!session?.user?.email) {
+            return new NextResponse("Unauthorized", { status: 401 });
+        }
+
+        const user = await prismadb.user.findUnique({ where: { email: session.user.email } });
+
+        if (!user) return new NextResponse("Unauthorized", { status: 401 });
+
         const isOwner = document.userId === user.id;
-        const isPublished = document.isPublished;
 
         let collaboratorPermission: string | null = null;
         if (!isOwner) {
@@ -261,7 +269,7 @@ export async function GET(
             }
         }
 
-        if (!isOwner && !collaboratorPermission && !isPublished) {
+        if (!isOwner && !collaboratorPermission) {
             return new NextResponse("Unauthorized", { status: 401 });
         }
 

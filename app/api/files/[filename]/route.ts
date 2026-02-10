@@ -4,17 +4,13 @@ import { join } from "path";
 import { existsSync } from "fs";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import prismadb from "@/lib/prismadb";
 
 export async function GET(
     request: NextRequest,
     props: { params: Promise<{ filename: string }> }
 ) {
     const session = await getServerSession(authOptions);
-
-    if (!session) {
-        return new NextResponse("Unauthorized", { status: 401 });
-    }
-
     const params = await props.params;
     const filename = params.filename;
 
@@ -22,6 +18,37 @@ export async function GET(
     // Only allow alphanumeric, dots, dashes, and underscores
     if (!filename.match(/^[a-zA-Z0-9._-]+$/)) {
         return new NextResponse("Invalid filename", { status: 400 });
+    }
+
+    let isAllowed = !!session;
+
+    if (!isAllowed) {
+        // Check for public document access
+        const { searchParams } = new URL(request.url);
+        const documentId = searchParams.get("documentId");
+
+        if (documentId) {
+            try {
+                const document = await prismadb.document.findUnique({
+                    where: { id: documentId },
+                    select: { isPublished: true, content: true }
+                });
+
+                if (document?.isPublished) {
+                    // Verify the file is actually used in this document
+                    // This is a simple string check, but effective enough for this filename format
+                    if (document.content && document.content.includes(filename)) {
+                        isAllowed = true;
+                    }
+                }
+            } catch (error) {
+                console.error("Error checking document permission", error);
+            }
+        }
+    }
+
+    if (!isAllowed) {
+        return new NextResponse("Unauthorized", { status: 401 });
     }
 
     const filepath = join(process.cwd(), "public", "uploads", filename);
