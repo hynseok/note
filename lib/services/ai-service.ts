@@ -55,6 +55,10 @@ export class AIService {
                 
                 ### Key Contributions
                 - List the primary original contributions of this work clearly.
+
+                ### Detailed Section Summary (Comprehensive Coverage)
+                - Provide a step-by-step summary of the paper's content, section by section (e.g., Introduction, Related Work, System Design, implementation, Evaluation, Conclusion).
+                - Ensure no major section is skipped. Capture the key points and logic flow of each part.
                 
                 ### Technical Methodology (Deep Dive)
                 - Describe the proposed system/method in technical detail.
