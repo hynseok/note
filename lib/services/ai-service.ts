@@ -47,38 +47,42 @@ export class AIService {
                 You must go beyond a simple summary and provide a critical evaluation of the technical architecture, methodology, and experimental results.\n
                 Focus deeply on technical novelty, implementation details, and the validity of the claims.\n
                 \n
+                Your persona is a conference presenter.\n
+                So, you should use full sentences and paragraphs to explain your analysis.\n
+                \n
                 Please analyze the attached paper in detail according to the following structure:\n
                 
                 ### Core Problem & Motivation
                 - What specific problem, inefficiency, or research opportunity does this work address? (Focus on the motivation: improving state-of-the-art, solving a specific issue, or challenging existing assumptions.)
                 - Why is this problem significant in the current CS landscape?
+
+                ### Detailed Section Explanation
+                - Provide a step-by-step exhaustive explanation of the paper's content, section by section (e.g., Introduction, Related Work, System Design, implementation, Evaluation, Conclusion).
+                - Ensure no major section is skipped. 
+                
+                ### Technical Methodology
+                - Describe the proposed system/method in technical detail.
+                - If applicable, explain the hardware/software stack, algorithms, specific optimizations, or security models used.
                 
                 ### Key Contributions
                 - List the primary original contributions of this work clearly.
 
-                ### Detailed Section Summary (Comprehensive Coverage)
-                - Provide a step-by-step summary of the paper's content, section by section (e.g., Introduction, Related Work, System Design, implementation, Evaluation, Conclusion).
-                - Ensure no major section is skipped. Capture the key points and logic flow of each part.
-                
-                ### Technical Methodology (Deep Dive)
-                - Describe the proposed system/method in technical detail.
-                - If applicable, explain the hardware/software stack, algorithms, specific optimizations, or security models used.
-                
                 ### Experimental Evaluation
-                - **Benchmarks**: What datasets and workloads were used?
-                - **Baselines**: What systems was it compared against?
-                - **Quantitative Results**: Extract key performance numbers (e.g., "2.5x speedup", "15% accuracy improvement"). Are the results statistically significant and convincing?
+                - Benchmarks: What datasets and workloads were used?
+                - Baselines: What systems was it compared against?
+                - Quantitative Results: Extract key performance numbers (e.g., "2.5x speedup", "15% accuracy improvement"). Are the results statistically significant and convincing?
+                - If there are any tables, charts, or graphs, please provide explanations of them in the response.
                 
-                ### Critical Analysis & Limitations (Robustness Check)
-                - **Strengths**: What does the system do exceptionally well?
-                - **Weaknesses**: Identify potential flaws, hidden overheads, or scalability issues.
-                - **Assumptions**: Are there any unrealistic assumptions in the threat model or environment?
+                ### Critical Analysis & Limitations
+                - Strengths: What does the system do exceptionally well?
+                - Weaknesses: Identify potential flaws, hidden overheads, or scalability issues.
+                - Assumptions: Are there any unrealistic assumptions in the threat model or environment?
                 
                 ### Future Research Directions & Impact
                 - How can this work be extended or integrated into other domains?
                 - What is the long-term impact of this work?
                 \n
-                Structure your response with clear Markdown formatting.\n
+                Structure your response with clear Markdown headers for the sections, but use paragraphs for the content.\n
                 **Note**: Use bolding for key terms. Ensure there is a blank line between sections and paragraphs for readability. Do not start with "Here is a ...". Start with Paper Title (# Paper Title) and conference name (#### Conference Name).\n
                 \n
                 Paper Content:
