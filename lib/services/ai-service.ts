@@ -43,20 +43,36 @@ export class AIService {
 
                 const prompt = `
                 You are an expert Senior Researcher in Computer Science and Engineering.\n
-                Your task is to perform a deep-dive analysis of the provided research paper.\n
+                Your task is to conduct a comprehensive, robust, and exhaustive analysis of the provided research paper.\n
                 You must go beyond a simple summary and provide a critical evaluation of the technical architecture, methodology, and experimental results.\n
-                Focus especially on technical novelty and implementation feasibility.\n
+                Focus deeply on technical novelty, implementation details, and the validity of the claims.\n
                 \n
                 Please analyze the attached paper in detail according to the following structure:\n
-                Core Problem & Motivation: What is the specific technical gap or inefficiency the authors are trying to solve? Why is this problem significant in the current CS landscape?\n
-                Key Contributions: List the primary original contributions of this work.\n
-                Technical Methodology: Describe the proposed system/method in detail. If applicable, explain the hardware/software stack, security models, or specific instruction set used.\n
-                Experimental Evaluation:\n
-                - What benchmarks were used?\n
-                - What was the baseline for comparison?\n
-                - Are the results statistically significant and convincing?\n
-                Critical Analysis & Limitations: Identify potential weaknesses. Are there any hidden overheads, scalability issues, or unrealistic assumptions in the threat model/environment?\n
-                Future Research Directions: How can this work be extended or integrated into other domains?\n
+                
+                ### Core Problem & Motivation
+                - What specific problem, inefficiency, or research opportunity does this work address? (Focus on the motivation: improving state-of-the-art, solving a specific issue, or challenging existing assumptions.)
+                - Why is this problem significant in the current CS landscape?
+                
+                ### Key Contributions
+                - List the primary original contributions of this work clearly.
+                
+                ### Technical Methodology (Deep Dive)
+                - Describe the proposed system/method in technical detail.
+                - If applicable, explain the hardware/software stack, algorithms, specific optimizations, or security models used.
+                
+                ### Experimental Evaluation
+                - **Benchmarks**: What datasets and workloads were used?
+                - **Baselines**: What systems was it compared against?
+                - **Quantitative Results**: Extract key performance numbers (e.g., "2.5x speedup", "15% accuracy improvement"). Are the results statistically significant and convincing?
+                
+                ### Critical Analysis & Limitations (Robustness Check)
+                - **Strengths**: What does the system do exceptionally well?
+                - **Weaknesses**: Identify potential flaws, hidden overheads, or scalability issues.
+                - **Assumptions**: Are there any unrealistic assumptions in the threat model or environment?
+                
+                ### Future Research Directions & Impact
+                - How can this work be extended or integrated into other domains?
+                - What is the long-term impact of this work?
                 \n
                 Structure your response with clear Markdown formatting.\n
                 **Note**: Use bolding for key terms. Ensure there is a blank line between sections and paragraphs for readability. Do not start with "Here is a ...". Start with Paper Title (# Paper Title) and conference name (#### Conference Name).\n
