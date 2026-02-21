@@ -48,10 +48,7 @@ export const useDocumentSync = (): UseDocumentSyncReturn => {
             // Rejoin current document if we were viewing one
             if (currentDocumentRef.current && session.user) {
                 const documentId = currentDocumentRef.current;
-                const userId = session.user.email || (session.user as any).id;
-                if (userId) {
-                    socket.emit("join-document", { documentId, userId });
-                }
+                socket.emit("join-document", { documentId });
             }
         });
 
@@ -139,21 +136,14 @@ export const useDocumentSync = (): UseDocumentSyncReturn => {
     const joinDocument = useCallback((documentId: string) => {
         if (!socketRef.current || !session?.user) return;
 
-        const userId = session.user.email || (session.user as any).id;
-
-        if (!userId) {
-            console.warn("[Socket.IO] Cannot join - no userId available");
-            return;
-        }
-
         // Leave previous document if any
         if (currentDocumentRef.current && currentDocumentRef.current !== documentId) {
             socketRef.current.emit("leave-document", { documentId: currentDocumentRef.current });
         }
 
         currentDocumentRef.current = documentId;
-        socketRef.current.emit("join-document", { documentId, userId });
-        console.log(`[Socket.IO] Joining document ${documentId} with user ${userId}`);
+        socketRef.current.emit("join-document", { documentId });
+        console.log(`[Socket.IO] Joining document ${documentId}`);
     }, [session]);
 
     const leaveDocument = useCallback((documentId: string) => {
