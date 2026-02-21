@@ -4,18 +4,26 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { io, Socket } from "socket.io-client";
 import { useSession } from "next-auth/react";
 
+export type DocumentSyncEventType = "DOCUMENT_UPDATE" | "DOCUMENT_STRUCTURE";
+
 interface DocumentUpdate {
     documentId: string;
     changes: any;
-    version: number;
-    userId: string;
+    eventType: DocumentSyncEventType;
+    documentVersion?: number;
+    userId?: string;
     timestamp: number;
 }
 
 interface UseDocumentSyncReturn {
     isConnected: boolean;
     subscribe: (callback: (update: DocumentUpdate) => void) => () => void;
-    broadcastUpdate: (documentId: string, changes: any, version: number) => void;
+    broadcastUpdate: (payload: {
+        documentId: string;
+        changes: any;
+        eventType?: DocumentSyncEventType;
+        documentVersion?: number;
+    }) => void;
     joinDocument: (documentId: string) => void;
     leaveDocument: (documentId: string) => void;
 }
@@ -120,16 +128,22 @@ export const useDocumentSync = (): UseDocumentSyncReturn => {
         };
     }, []);
 
-    const broadcastUpdate = useCallback((documentId: string, changes: any, version: number) => {
+    const broadcastUpdate = useCallback((payload: {
+        documentId: string;
+        changes: any;
+        eventType?: DocumentSyncEventType;
+        documentVersion?: number;
+    }) => {
         if (!socketRef.current?.connected) {
             console.warn("[Socket.IO] Cannot broadcast - not connected");
             return;
         }
 
         socketRef.current.emit("document-update", {
-            documentId,
-            changes,
-            version,
+            documentId: payload.documentId,
+            changes: payload.changes,
+            eventType: payload.eventType || "DOCUMENT_UPDATE",
+            documentVersion: payload.documentVersion,
         });
     }, []);
 

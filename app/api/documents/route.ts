@@ -123,8 +123,8 @@ export async function POST(req: Request) {
                 const roomName = `document:${parentDocumentId}`;
                 io.to(roomName).emit('remote-update', {
                     documentId: parentDocumentId,
+                    eventType: 'DOCUMENT_STRUCTURE',
                     changes: { childCreated: true, newChildId: document.id },
-                    version: Date.now()
                 });
                 console.log(`[Socket.IO] Child creation broadcast for parent ${parentDocumentId}`);
             }
