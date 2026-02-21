@@ -189,11 +189,11 @@ export async function PATCH(req: Request) {
                     if (io) {
                         io.to(`document:${oldParentId}`).emit('remote-update', {
                             documentId: oldParentId,
+                            eventType: 'DOCUMENT_STRUCTURE',
                             changes: {
                                 content: newContent,
                                 childLeft: id // Signal that a child left, enabling surgical 'DELETE' event on frontend
-                            },
-                            version: Date.now()
+                            }
                         });
                     }
                 }

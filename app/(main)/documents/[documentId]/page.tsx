@@ -102,7 +102,12 @@ export default function DocumentIdPage({
                     setVersion(updatedDoc.version);
 
                     // Broadcast update via WebSocket
-                    broadcastUpdate(documentId, values, updatedDoc.version);
+                    broadcastUpdate({
+                        documentId,
+                        changes: values,
+                        eventType: "DOCUMENT_UPDATE",
+                        documentVersion: updatedDoc.version
+                    });
                 } catch (error) {
                     console.error("Error updating document:", error);
                     toast.error("Failed to save changes");
@@ -261,8 +266,10 @@ export default function DocumentIdPage({
                 documentEvents.emit({ type: "CONTENT_REFRESH", documentId });
             }
 
-            // Update version
-            setVersion(update.version);
+            // Only document update events carry authoritative documentVersion.
+            if (update.eventType === "DOCUMENT_UPDATE" && typeof update.documentVersion === "number") {
+                setVersion(update.documentVersion);
+            }
 
             // Show notification (subtle)
             toast.info("Document updated by another user", { duration: 2000 });
@@ -359,7 +366,12 @@ export default function DocumentIdPage({
             setVersion(updatedDoc.version);
 
             // Broadcast via WebSocket
-            broadcastUpdate(documentId, { isDatabase: newValue }, updatedDoc.version);
+            broadcastUpdate({
+                documentId,
+                changes: { isDatabase: newValue },
+                eventType: "DOCUMENT_UPDATE",
+                documentVersion: updatedDoc.version
+            });
 
             toast.success(newValue ? "Switched to Database view" : "Switched to Page view");
         } catch (error) {

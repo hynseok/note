@@ -38,7 +38,11 @@ export const useDatabase = (documentId: string) => {
             documentEvents.emit({ type: "DATABASE_UPDATE" });
 
             // Broadcast to parent document room for real-time sync
-            broadcastUpdate(documentId, { childUpdated: itemId }, Date.now());
+            broadcastUpdate({
+                documentId,
+                changes: { childUpdated: itemId },
+                eventType: "DOCUMENT_STRUCTURE"
+            });
         } catch (error) {
             toast.error("Failed to move item");
         }
@@ -72,7 +76,11 @@ export const useDatabase = (documentId: string) => {
             documentEvents.emit({ type: "CREATE_CHILD", parentId: documentId });
 
             // Broadcast to parent document room for real-time sync
-            broadcastUpdate(documentId, { childCreated: true }, Date.now());
+            broadcastUpdate({
+                documentId,
+                changes: { childCreated: true },
+                eventType: "DOCUMENT_STRUCTURE"
+            });
         } catch (error) {
             toast.error("Failed to create item");
         } finally {

@@ -114,7 +114,9 @@ export const DocumentModal = ({ documentId, isOpen, onClose }: DocumentModalProp
                     setProperties(update.changes.properties);
                 }
 
-                if (update.version) setVersion(update.version);
+                if (update.eventType === "DOCUMENT_UPDATE" && typeof update.documentVersion === "number") {
+                    setVersion(update.documentVersion);
+                }
             });
 
             return () => {
@@ -160,11 +162,20 @@ export const DocumentModal = ({ documentId, isOpen, onClose }: DocumentModalProp
             setVersion(updatedDoc.version);
 
             // Broadcast via WebSocket to the document itself
-            broadcastUpdate(documentId, values, updatedDoc.version);
+            broadcastUpdate({
+                documentId,
+                changes: values,
+                eventType: "DOCUMENT_UPDATE",
+                documentVersion: updatedDoc.version
+            });
 
             // CRITICAL: Also broadcast to the PARENT document so the page link/calendar updates
             if (parentDocumentId) {
-                broadcastUpdate(parentDocumentId, { childUpdated: documentId }, Date.now());
+                broadcastUpdate({
+                    documentId: parentDocumentId,
+                    changes: { childUpdated: documentId },
+                    eventType: "DOCUMENT_STRUCTURE"
+                });
             }
 
             // Local event for sidebar
@@ -254,11 +265,20 @@ export const DocumentModal = ({ documentId, isOpen, onClose }: DocumentModalProp
             setVersion(updatedDoc.version);
 
             // Broadcast property update via WebSocket
-            broadcastUpdate(documentId, { properties: newProperties }, updatedDoc.version);
+            broadcastUpdate({
+                documentId,
+                changes: { properties: newProperties },
+                eventType: "DOCUMENT_UPDATE",
+                documentVersion: updatedDoc.version
+            });
 
             // CRITICAL: Also broadcast to the PARENT document so the calendar view updates date/tags
             if (parentDocumentId) {
-                broadcastUpdate(parentDocumentId, { childUpdated: documentId }, Date.now());
+                broadcastUpdate({
+                    documentId: parentDocumentId,
+                    changes: { childUpdated: documentId },
+                    eventType: "DOCUMENT_STRUCTURE"
+                });
                 // Also emit local event for the current user's view (if they are viewing the parent)
                 documentEvents.emit({ type: "CHILD_UPDATED", parentId: parentDocumentId, childId: documentId });
             }
