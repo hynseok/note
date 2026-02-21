@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { documentEvents } from "@/lib/events";
 import { useDocumentSync } from "@/hooks/use-document-sync";
 import { toast } from "sonner";
+import { hasAuthoritativeDocumentVersion } from "@/lib/sync-events";
 
 interface DocumentModalProps {
     documentId: string;
@@ -114,7 +115,7 @@ export const DocumentModal = ({ documentId, isOpen, onClose }: DocumentModalProp
                     setProperties(update.changes.properties);
                 }
 
-                if (update.eventType === "DOCUMENT_UPDATE" && typeof update.documentVersion === "number") {
+                if (hasAuthoritativeDocumentVersion(update)) {
                     setVersion(update.documentVersion);
                 }
             });

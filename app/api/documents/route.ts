@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import prismadb from "@/lib/prismadb";
 import { authOptions } from "@/lib/auth";
+import { getCurrentUserFromSession } from "@/lib/permissions";
 
 export async function POST(req: Request) {
     try {
@@ -13,12 +14,7 @@ export async function POST(req: Request) {
 
         const { title, parentDocumentId, skipContentUpdate, isDatabase, properties } = await req.json();
 
-        const user = await prismadb.user.findUnique({
-            where: {
-                email: session.user.email,
-            }
-        });
-
+        const user = await getCurrentUserFromSession(session);
         if (!user) {
             return new NextResponse("Unauthorized", { status: 401 });
         }
@@ -205,12 +201,7 @@ export async function GET(req: Request) {
             return new NextResponse("Unauthorized", { status: 401 });
         }
 
-        const user = await prismadb.user.findUnique({
-            where: {
-                email: session.user.email,
-            }
-        });
-
+        const user = await getCurrentUserFromSession(session);
         if (!user) {
             return new NextResponse("Unauthorized", { status: 401 });
         }

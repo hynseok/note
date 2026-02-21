@@ -3,27 +3,18 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { io, Socket } from "socket.io-client";
 import { useSession } from "next-auth/react";
-
-export type DocumentSyncEventType = "DOCUMENT_UPDATE" | "DOCUMENT_STRUCTURE";
-
-interface DocumentUpdate {
-    documentId: string;
-    changes: any;
-    eventType: DocumentSyncEventType;
-    documentVersion?: number;
-    userId?: string;
-    timestamp: number;
-}
+import {
+    type DocumentSyncEventType,
+    type SyncBroadcastInput,
+    type SyncEventPayload,
+    normalizeIncomingSyncEvent,
+    normalizeOutgoingSyncEvent,
+} from "@/lib/sync-events";
 
 interface UseDocumentSyncReturn {
     isConnected: boolean;
-    subscribe: (callback: (update: DocumentUpdate) => void) => () => void;
-    broadcastUpdate: (payload: {
-        documentId: string;
-        changes: any;
-        eventType?: DocumentSyncEventType;
-        documentVersion?: number;
-    }) => void;
+    subscribe: (callback: (update: SyncEventPayload) => void) => () => void;
+    broadcastUpdate: (payload: SyncBroadcastInput) => void;
     joinDocument: (documentId: string) => void;
     leaveDocument: (documentId: string) => void;
 }
@@ -32,7 +23,7 @@ export const useDocumentSync = (): UseDocumentSyncReturn => {
     const { data: session } = useSession();
     const socketRef = useRef<Socket | null>(null);
     const [isConnected, setIsConnected] = useState(false);
-    const listenersRef = useRef<Set<(update: DocumentUpdate) => void>>(new Set());
+    const listenersRef = useRef<Set<(update: SyncEventPayload) => void>>(new Set());
     const currentDocumentRef = useRef<string | null>(null);
 
     useEffect(() => {
@@ -65,10 +56,11 @@ export const useDocumentSync = (): UseDocumentSyncReturn => {
             setIsConnected(false);
         });
 
-        socket.on("remote-update", (update: DocumentUpdate) => {
-            console.log("[Socket.IO] Received remote update", update);
+        socket.on("remote-update", (update: SyncEventPayload & { version?: number }) => {
+            const normalizedUpdate = normalizeIncomingSyncEvent(update);
+            console.log("[Socket.IO] Received remote update", normalizedUpdate);
             // Notify all subscribers
-            listenersRef.current.forEach((callback) => callback(update));
+            listenersRef.current.forEach((callback) => callback(normalizedUpdate));
         });
 
         socket.on("error", (error: any) => {
@@ -121,30 +113,21 @@ export const useDocumentSync = (): UseDocumentSyncReturn => {
         };
     }, [session]);
 
-    const subscribe = useCallback((callback: (update: DocumentUpdate) => void) => {
+    const subscribe = useCallback((callback: (update: SyncEventPayload) => void) => {
         listenersRef.current.add(callback);
         return () => {
             listenersRef.current.delete(callback);
         };
     }, []);
 
-    const broadcastUpdate = useCallback((payload: {
-        documentId: string;
-        changes: any;
-        eventType?: DocumentSyncEventType;
-        documentVersion?: number;
-    }) => {
+    const broadcastUpdate = useCallback((payload: SyncBroadcastInput) => {
         if (!socketRef.current?.connected) {
             console.warn("[Socket.IO] Cannot broadcast - not connected");
             return;
         }
 
-        socketRef.current.emit("document-update", {
-            documentId: payload.documentId,
-            changes: payload.changes,
-            eventType: payload.eventType || "DOCUMENT_UPDATE",
-            documentVersion: payload.documentVersion,
-        });
+        const normalizedPayload = normalizeOutgoingSyncEvent(payload);
+        socketRef.current.emit("document-update", normalizedPayload);
     }, []);
 
     const joinDocument = useCallback((documentId: string) => {

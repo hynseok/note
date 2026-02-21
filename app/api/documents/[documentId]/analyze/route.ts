@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import prismadb from "@/lib/prismadb";
 import { authOptions } from "@/lib/auth";
 import { PDFService } from "@/lib/services/pdf-service";
 import { AIService } from "@/lib/services/ai-service";
+import { getCurrentUserFromSession, getDocumentAccess } from "@/lib/permissions";
 
 export async function POST(
     req: Request,
@@ -18,24 +18,22 @@ export async function POST(
             return new NextResponse("Unauthorized", { status: 401 });
         }
 
+        const currentUser = await getCurrentUserFromSession(session);
+        if (!currentUser) {
+            return new NextResponse("Unauthorized", { status: 401 });
+        }
+
         if (!fileUrl) {
             return new NextResponse("Missing file URL", { status: 400 });
         }
 
-        // Verify Document Ownership/Access
-        const document = await prismadb.document.findUnique({
-            where: { id: params.documentId },
-            select: { userId: true, parentDocumentId: true } // Minimum select for auth check
-        });
-
-        if (!document) {
+        const access = await getDocumentAccess(params.documentId, currentUser.id);
+        if (!access.exists) {
             return new NextResponse("Document not found", { status: 404 });
         }
-
-        // Basic Authorization check (Owner or Editor)
-        // For simplicity reusing logic or just allow authenticated users for now if too complex to re-fetch all permissions here.
-        // Given it's a "private note" app, let's assume owner access is key.
-        // TODO: Import robust permission check from 'lib/permissions'.
+        if (!access.canEdit) {
+            return new NextResponse("Unauthorized", { status: 401 });
+        }
 
         // Extract Text
         // fileUrl is likely "/uploads/filename.pdf"

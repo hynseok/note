@@ -18,6 +18,7 @@ import { useDatabase } from "@/hooks/use-database";
 import { useDocumentSync } from "@/hooks/use-document-sync";
 import { useSession } from "next-auth/react";
 import { ConflictBanner } from "@/components/conflict-banner";
+import { hasAuthoritativeDocumentVersion } from "@/lib/sync-events";
 
 // Simple debounce utility
 function debounce<T extends (...args: any[]) => any>(
@@ -266,8 +267,8 @@ export default function DocumentIdPage({
                 documentEvents.emit({ type: "CONTENT_REFRESH", documentId });
             }
 
-            // Only document update events carry authoritative documentVersion.
-            if (update.eventType === "DOCUMENT_UPDATE" && typeof update.documentVersion === "number") {
+            // Only authoritative update events should mutate local optimistic-lock version.
+            if (hasAuthoritativeDocumentVersion(update)) {
                 setVersion(update.documentVersion);
             }
 
