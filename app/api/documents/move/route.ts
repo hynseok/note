@@ -2,39 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import prismadb from "@/lib/prismadb";
 import { authOptions } from "@/lib/auth";
-
-async function canEditDocument(documentId: string, userId: string): Promise<boolean> {
-    const document = await prismadb.document.findUnique({
-        where: { id: documentId },
-        select: { userId: true, parentDocumentId: true }
-    });
-
-    if (!document) return false;
-    if (document.userId === userId) return true;
-
-    if (document.parentDocumentId) {
-        const parentDoc = await prismadb.document.findUnique({
-            where: { id: document.parentDocumentId },
-            select: { userId: true }
-        });
-
-        if (parentDoc?.userId === userId) {
-            return true;
-        }
-    }
-
-    const collaborator = await prismadb.collaborator.findUnique({
-        where: {
-            documentId_userId: {
-                documentId,
-                userId
-            }
-        },
-        select: { permission: true }
-    });
-
-    return collaborator?.permission === "EDIT";
-}
+import { canEditDocument, getCurrentUserFromSession } from "@/lib/permissions";
 
 export async function PATCH(req: Request) {
     try {
@@ -44,11 +12,7 @@ export async function PATCH(req: Request) {
             return new NextResponse("Unauthorized", { status: 401 });
         }
 
-        const currentUser = await prismadb.user.findUnique({
-            where: { email: session.user.email },
-            select: { id: true }
-        });
-
+        const currentUser = await getCurrentUserFromSession(session);
         if (!currentUser) {
             return new NextResponse("Unauthorized", { status: 401 });
         }

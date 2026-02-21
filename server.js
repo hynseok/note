@@ -2,7 +2,6 @@ const { createServer } = require('http');
 // const { parse } = require('url'); // Deprecated, using URL API instead
 const next = require('next');
 const { Server } = require('socket.io');
-const { getSession } = require('next-auth/react');
 
 const dev = process.env.NODE_ENV !== 'production';
 const hostname = 'localhost';
@@ -57,8 +56,9 @@ app.prepare().then(() => {
         transports: ['websocket', 'polling'],
     });
 
-
-
+    // Expose Socket.IO instance for API routes that publish real-time events.
+    global.io = io;
+    globalThis.io = io;
     // Import socket handler
     require('./lib/socket-server')(io);
 

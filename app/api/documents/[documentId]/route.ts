@@ -4,6 +4,7 @@ import prismadb from "@/lib/prismadb";
 import { authOptions } from "@/lib/auth";
 import fs from "fs";
 import path from "path";
+import { getCurrentUserFromSession, getDocumentAccess } from "@/lib/permissions";
 
 // Helper to check if targetId is an ancestor of documentId (prevents circular moves)
 async function isAncestor(documentId: string, targetId: string): Promise<boolean> {
@@ -248,35 +249,24 @@ export async function GET(
             return new NextResponse("Unauthorized", { status: 401 });
         }
 
-        const user = await prismadb.user.findUnique({ where: { email: session.user.email } });
+        const user = await getCurrentUserFromSession(session);
 
         if (!user) return new NextResponse("Unauthorized", { status: 401 });
 
-        const isOwner = document.userId === user.id;
-
-        let collaboratorPermission: string | null = null;
-        if (!isOwner) {
-            const collaborator = await prismadb.collaborator.findUnique({
-                where: {
-                    documentId_userId: {
-                        documentId: params.documentId,
-                        userId: user.id
-                    }
-                }
-            });
-            if (collaborator) {
-                collaboratorPermission = collaborator.permission;
-            }
+        const access = await getDocumentAccess(params.documentId, user.id);
+        if (!access.exists) {
+            return new NextResponse("Not Found", { status: 404 });
         }
 
-        if (!isOwner && !collaboratorPermission) {
+        // Keep existing behavior: owner or collaborator can read private docs.
+        if (!access.isOwner && access.collaboratorPermission === null) {
             return new NextResponse("Unauthorized", { status: 401 });
         }
 
         let currentUserPermission = "READ";
-        if (isOwner) {
+        if (access.isOwner) {
             currentUserPermission = "OWNER";
-        } else if (collaboratorPermission === "EDIT") {
+        } else if (access.collaboratorPermission === "EDIT") {
             currentUserPermission = "EDIT";
         }
 
@@ -304,7 +294,7 @@ export async function DELETE(
             return new NextResponse("Unauthorized", { status: 401 });
         }
 
-        const user = await prismadb.user.findUnique({ where: { email: session.user.email } });
+        const user = await getCurrentUserFromSession(session);
         if (!user) return new NextResponse("Unauthorized", { status: 401 });
 
         const existingDocument = await prismadb.document.findUnique({
@@ -315,20 +305,9 @@ export async function DELETE(
             return new NextResponse("Not Found", { status: 404 });
         }
 
-        if (existingDocument.userId !== user.id) {
-            let isParentOwner = false;
-            if (existingDocument.parentDocumentId) {
-                const parentDoc = await prismadb.document.findUnique({
-                    where: { id: existingDocument.parentDocumentId }
-                });
-                if (parentDoc && parentDoc.userId === user.id) {
-                    isParentOwner = true;
-                }
-            }
-
-            if (!isParentOwner) {
-                return new NextResponse("Unauthorized", { status: 401 });
-            }
+        const access = await getDocumentAccess(params.documentId, user.id);
+        if (!access.exists || !access.canDelete) {
+            return new NextResponse("Unauthorized", { status: 401 });
         }
 
         // Notify all users in the document room before deletion
@@ -381,7 +360,7 @@ export async function PATCH(
             return new NextResponse("Unauthorized", { status: 401 });
         }
 
-        const user = await prismadb.user.findUnique({ where: { email: session.user.email } });
+        const user = await getCurrentUserFromSession(session);
         if (!user) return new NextResponse("Unauthorized", { status: 401 });
 
         const existingDocument = await prismadb.document.findUnique({
@@ -402,36 +381,10 @@ export async function PATCH(
             );
         }
 
-        const isOwner = existingDocument.userId === user.id;
+        const access = await getDocumentAccess(params.documentId, user.id);
+        if (!access.exists) return new NextResponse("Not Found", { status: 404 });
 
-        // Check if user is the owner OR parent owner
-        let isOwnerOrParentOwner = isOwner;
-        if (!isOwner && existingDocument.parentDocumentId) {
-            const parentDoc = await prismadb.document.findUnique({
-                where: { id: existingDocument.parentDocumentId }
-            });
-            if (parentDoc?.userId === user.id) {
-                isOwnerOrParentOwner = true;
-            }
-        }
-
-        // Check if user is a collaborator with EDIT permission
-        let canEdit = isOwnerOrParentOwner;
-        if (!canEdit) {
-            const collaborator = await prismadb.collaborator.findUnique({
-                where: {
-                    documentId_userId: {
-                        documentId: params.documentId,
-                        userId: user.id
-                    }
-                }
-            });
-            if (collaborator?.permission === "EDIT") {
-                canEdit = true;
-            }
-        }
-
-        if (!canEdit) {
+        if (!access.canEdit) {
             return new NextResponse("Unauthorized", { status: 401 });
         }
 
@@ -442,7 +395,7 @@ export async function PATCH(
             isArchived !== undefined;
 
         // Restrict owner-only actions
-        if (isOwnerOnlyAction && !isOwnerOrParentOwner) {
+        if (isOwnerOnlyAction && !(access.isOwner || access.isParentOwner)) {
             return new NextResponse("Unauthorized - Owner only action", { status: 401 });
         }
 

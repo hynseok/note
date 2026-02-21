@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { assertSafePublicHttpUrl } from "@/lib/url-safety";
 
 interface LinkPreview {
     title: string;
@@ -19,15 +20,31 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Fetch the page
-        const response = await fetch(url, {
-            headers: {
-                "User-Agent": "Mozilla/5.0 (compatible; LinkPreview/1.0)",
-            },
-        });
+        const safeUrl = await assertSafePublicHttpUrl(url);
+
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 5000);
+
+        let response: Response;
+        try {
+            // Fetch the page
+            response = await fetch(safeUrl.toString(), {
+                headers: {
+                    "User-Agent": "Mozilla/5.0 (compatible; LinkPreview/1.0)",
+                },
+                signal: controller.signal,
+            });
+        } finally {
+            clearTimeout(timeout);
+        }
 
         if (!response.ok) {
             throw new Error("Failed to fetch URL");
+        }
+
+        const contentLength = response.headers.get("content-length");
+        if (contentLength && Number(contentLength) > 2_000_000) {
+            throw new Error("Response too large");
         }
 
         const html = await response.text();
@@ -36,7 +53,7 @@ export async function POST(request: NextRequest) {
         const title = extractMeta(html, "og:title") ||
             extractMeta(html, "twitter:title") ||
             extractTitle(html) ||
-            new URL(url).hostname;
+            safeUrl.hostname;
 
         const description = extractMeta(html, "og:description") ||
             extractMeta(html, "twitter:description") ||
@@ -52,14 +69,36 @@ export async function POST(request: NextRequest) {
         const preview: LinkPreview = {
             title,
             description: description.slice(0, 200),
-            image: image ? resolveUrl(image, url) : null,
-            favicon,
-            url,
+            image: image ? resolveUrl(image, safeUrl.toString()) : null,
+            favicon: favicon ? resolveUrl(favicon, safeUrl.toString()) : null,
+            url: safeUrl.toString(),
         };
 
         return NextResponse.json(preview);
     } catch (error) {
         console.error("Link preview error:", error);
+
+        const message = error instanceof Error ? error.message : "Failed to fetch link preview";
+        if (
+            message === "Invalid URL" ||
+            message === "Only HTTP(S) URLs are allowed" ||
+            message === "Blocked hostname" ||
+            message === "Blocked address" ||
+            message === "Could not resolve host"
+        ) {
+            return NextResponse.json(
+                { error: "Invalid or blocked URL" },
+                { status: 400 }
+            );
+        }
+
+        if (message === "Response too large") {
+            return NextResponse.json(
+                { error: "Preview payload too large" },
+                { status: 413 }
+            );
+        }
+
         return NextResponse.json(
             { error: "Failed to fetch link preview" },
             { status: 500 }

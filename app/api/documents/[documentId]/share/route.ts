@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import prismadb from "@/lib/prismadb";
 import { authOptions } from "@/lib/auth";
+import { getCurrentUserFromSession, getDocumentAccess } from "@/lib/permissions";
 
 export async function GET(
     req: Request,
@@ -12,10 +13,6 @@ export async function GET(
         const session = await getServerSession(authOptions);
         if (!session?.user?.email) return new NextResponse("Unauthorized", { status: 401 });
 
-        // Check if user has access (Owner or Collaborator)
-        // Actually, only owner should manage sharing? Or editors too? Let's say Owner only for now for managing.
-        // But to VIEW the list, maybe editors too.
-
         const document = await prismadb.document.findUnique({
             where: { id: params.documentId },
             include: { user: true }
@@ -23,21 +20,13 @@ export async function GET(
 
         if (!document) return new NextResponse("Not found", { status: 404 });
 
-        // Check ownership or existing collaboration
-        const currentUser = await prismadb.user.findUnique({ where: { email: session.user.email } });
+        const currentUser = await getCurrentUserFromSession(session);
         if (!currentUser) return new NextResponse("Unauthorized", { status: 401 });
 
-        if (document.userId !== currentUser.id) {
-            // If not owner, check if collaborator
-            const isCollab = await prismadb.collaborator.findUnique({
-                where: {
-                    documentId_userId: {
-                        documentId: params.documentId,
-                        userId: currentUser.id
-                    }
-                }
-            });
-            if (!isCollab) return new NextResponse("Unauthorized", { status: 401 });
+        const access = await getDocumentAccess(params.documentId, currentUser.id);
+        if (!access.exists) return new NextResponse("Not found", { status: 404 });
+        if (!access.isOwner && access.collaboratorPermission === null) {
+            return new NextResponse("Unauthorized", { status: 401 });
         }
 
         const collaborators = await prismadb.collaborator.findMany({
@@ -81,14 +70,14 @@ export async function POST(
 
         if (!session?.user?.email) return new NextResponse("Unauthorized", { status: 401 });
 
-        const document = await prismadb.document.findUnique({
-            where: { id: params.documentId }
-        });
+        const currentUser = await getCurrentUserFromSession(session);
+        if (!currentUser) {
+            return new NextResponse("Unauthorized", { status: 401 });
+        }
 
-        if (!document) return new NextResponse("Not found", { status: 404 });
-
-        const currentUser = await prismadb.user.findUnique({ where: { email: session.user.email } });
-        if (!currentUser || document.userId !== currentUser.id) {
+        const access = await getDocumentAccess(params.documentId, currentUser.id);
+        if (!access.exists) return new NextResponse("Not found", { status: 404 });
+        if (!access.canManageShare) {
             return new NextResponse("Unauthorized", { status: 401 });
         }
 
@@ -181,11 +170,14 @@ export async function DELETE(
 
         if (!document) return new NextResponse("Not found", { status: 404 });
 
-        const currentUser = await prismadb.user.findUnique({ where: { email: session.user.email } });
+        const currentUser = await getCurrentUserFromSession(session);
 
         if (!currentUser) return new NextResponse("Unauthorized", { status: 401 });
 
-        const isOwner = document.userId === currentUser.id;
+        const access = await getDocumentAccess(params.documentId, currentUser.id);
+        if (!access.exists) return new NextResponse("Not found", { status: 404 });
+
+        const isOwner = access.isOwner;
         const isSelf = userId === currentUser.id;
 
         if (!isOwner && !isSelf) {
