@@ -3,11 +3,53 @@ import { getServerSession } from "next-auth";
 import prismadb from "@/lib/prismadb";
 import { authOptions } from "@/lib/auth";
 
+async function canEditDocument(documentId: string, userId: string): Promise<boolean> {
+    const document = await prismadb.document.findUnique({
+        where: { id: documentId },
+        select: { userId: true, parentDocumentId: true }
+    });
+
+    if (!document) return false;
+    if (document.userId === userId) return true;
+
+    if (document.parentDocumentId) {
+        const parentDoc = await prismadb.document.findUnique({
+            where: { id: document.parentDocumentId },
+            select: { userId: true }
+        });
+
+        if (parentDoc?.userId === userId) {
+            return true;
+        }
+    }
+
+    const collaborator = await prismadb.collaborator.findUnique({
+        where: {
+            documentId_userId: {
+                documentId,
+                userId
+            }
+        },
+        select: { permission: true }
+    });
+
+    return collaborator?.permission === "EDIT";
+}
+
 export async function PATCH(req: Request) {
     try {
         const session = await getServerSession(authOptions);
 
         if (!session?.user?.email) {
+            return new NextResponse("Unauthorized", { status: 401 });
+        }
+
+        const currentUser = await prismadb.user.findUnique({
+            where: { email: session.user.email },
+            select: { id: true }
+        });
+
+        if (!currentUser) {
             return new NextResponse("Unauthorized", { status: 401 });
         }
 
@@ -17,33 +59,59 @@ export async function PATCH(req: Request) {
             return new NextResponse("Invalid request", { status: 400 });
         }
 
-        // 1. Get the target document to find its order
+        const originalDoc = await prismadb.document.findUnique({
+            where: { id },
+            select: { id: true, parentDocumentId: true }
+        });
+
+        if (!originalDoc) {
+            return new NextResponse("Document not found", { status: 404 });
+        }
+
+        const canEditSource = await canEditDocument(id, currentUser.id);
+        if (!canEditSource) {
+            return new NextResponse("Unauthorized", { status: 401 });
+        }
+
+        // 1. Get the target document to find its order and destination parent
         const targetDoc = await prismadb.document.findUnique({
-            where: { id: targetId }
+            where: { id: targetId },
+            select: { id: true, order: true, parentDocumentId: true }
         });
 
         if (!targetDoc) {
             return new NextResponse("Target document not found", { status: 404 });
         }
 
-        // 2. We want to insert 'id' right AFTER 'targetId' in the new list (parentId)
-        // or effectively at target's position, shifting things down.
-        // Let's assume we replace position, so we take target's order, and shift target and subsequent items down?
-        // Usually DnD replaces. Let's set order = targetDoc.order and shift everything >= targetDoc.order + 1
+        const canEditTarget = await canEditDocument(targetId, currentUser.id);
+        if (!canEditTarget) {
+            return new NextResponse("Unauthorized", { status: 401 });
+        }
+
+        const destinationParentId = parentId === undefined ? targetDoc.parentDocumentId : parentId;
+        if (targetDoc.parentDocumentId !== destinationParentId) {
+            return new NextResponse("Target does not belong to destination parent", { status: 400 });
+        }
 
         const destinationOrder = targetDoc.order;
 
-        // Shift existing items in the destination parent
-        // If parentId is null (root), handle that.
-        // Prisma doesn't support "updateMany where parentId is null" easily if field is nullable?
-        // Actually parentId comes from frontend (over.data.parentId).
+        if (destinationParentId) {
+            const destinationParentExists = await prismadb.document.findUnique({
+                where: { id: destinationParentId },
+                select: { id: true }
+            });
 
-        // Update: We'll do a transaction.
-        // Shift all items with order >= destinationOrder down by 1 in the target list
+            if (!destinationParentExists) {
+                return new NextResponse("Destination parent not found", { status: 404 });
+            }
 
-        if (parentId) {
+            const canEditDestinationParent = await canEditDocument(destinationParentId, currentUser.id);
+            if (!canEditDestinationParent) {
+                return new NextResponse("Unauthorized", { status: 401 });
+            }
+
             // Cycle Detection: Check if the new parent is a child of the document being moved
-            let currentParentId: string | null = parentId;
+            let currentParentId: string | null = destinationParentId;
             while (currentParentId) {
                 if (currentParentId === id) {
                     return new NextResponse("Cannot move a note inside its own child", { status: 400 });
@@ -56,13 +124,7 @@ export async function PATCH(req: Request) {
             }
         }
 
-        // Fetch original document to compare parent
-        const originalDoc = await prismadb.document.findUnique({
-            where: { id: id },
-            select: { parentDocumentId: true }
-        });
-
-        if (originalDoc && originalDoc.parentDocumentId && originalDoc.parentDocumentId !== parentId) {
+        if (originalDoc.parentDocumentId && originalDoc.parentDocumentId !== destinationParentId) {
             // Document is being moved OUT of a parent. Remove the link from the old parent.
             const oldParentId = originalDoc.parentDocumentId;
             const oldParent = await prismadb.document.findUnique({
@@ -142,7 +204,7 @@ export async function PATCH(req: Request) {
             // 1. Shift items down to make space
             await tx.document.updateMany({
                 where: {
-                    parentDocumentId: parentId,
+                    parentDocumentId: destinationParentId,
                     order: { gte: destinationOrder },
                     id: { not: id } // Don't shift self if moving within same list (simplifies logic)
                 },
@@ -155,7 +217,7 @@ export async function PATCH(req: Request) {
             await tx.document.update({
                 where: { id: id },
                 data: {
-                    parentDocumentId: parentId,
+                    parentDocumentId: destinationParentId,
                     order: destinationOrder
                 }
             });
