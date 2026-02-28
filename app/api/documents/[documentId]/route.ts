@@ -228,7 +228,12 @@ export async function GET(
                             }
                         }
                     }
-                }
+                },
+                _count: {
+                    select: {
+                        collaborators: true,
+                    },
+                },
             }
         });
 
@@ -236,15 +241,9 @@ export async function GET(
             return new NextResponse("Not Found", { status: 404 });
         }
 
+        const isSharedDocument = document._count.collaborators > 0;
+
         if (document.isPublished && !document.isArchived) {
-            let isSharedDocument = false;
-            if (session?.user?.email) {
-                const user = await getCurrentUserFromSession(session);
-                if (user) {
-                    const access = await getDocumentAccess(params.documentId, user.id);
-                    isSharedDocument = !access.isOwner && access.collaboratorPermission !== null;
-                }
-            }
 
             return NextResponse.json({
                 ...document,
@@ -283,7 +282,7 @@ export async function GET(
         return NextResponse.json({
             ...document,
             currentUserPermission,
-            isSharedDocument: !access.isOwner && access.collaboratorPermission !== null,
+            isSharedDocument,
             version: document.version,
             lastSyncedAt: document.lastSyncedAt
         });

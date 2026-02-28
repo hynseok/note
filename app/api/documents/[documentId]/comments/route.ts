@@ -30,8 +30,13 @@ export async function GET(_: Request, props: RouteProps) {
         if (!access.exists) {
             return new NextResponse("Not Found", { status: 404 });
         }
-        const isSharedCollaborator = !access.isOwner && access.collaboratorPermission !== null;
-        if (!isSharedCollaborator) {
+        if (!access.canRead) {
+            return new NextResponse("Unauthorized", { status: 401 });
+        }
+        const hasCollaborators = await prismadb.collaborator.count({
+            where: { documentId: params.documentId },
+        });
+        if (hasCollaborators === 0) {
             return new NextResponse("Unauthorized", { status: 401 });
         }
 
@@ -93,8 +98,13 @@ export async function POST(req: Request, props: RouteProps) {
         if (!access.exists) {
             return new NextResponse("Not Found", { status: 404 });
         }
-        const isSharedCollaborator = !access.isOwner && access.collaboratorPermission !== null;
-        if (!isSharedCollaborator) {
+        if (!access.canRead) {
+            return new NextResponse("Unauthorized", { status: 401 });
+        }
+        const hasCollaborators = await prismadb.collaborator.count({
+            where: { documentId: params.documentId },
+        });
+        if (hasCollaborators === 0) {
             return new NextResponse("Unauthorized", { status: 401 });
         }
 
