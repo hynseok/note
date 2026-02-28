@@ -237,9 +237,19 @@ export async function GET(
         }
 
         if (document.isPublished && !document.isArchived) {
+            let isSharedDocument = false;
+            if (session?.user?.email) {
+                const user = await getCurrentUserFromSession(session);
+                if (user) {
+                    const access = await getDocumentAccess(params.documentId, user.id);
+                    isSharedDocument = !access.isOwner && access.collaboratorPermission !== null;
+                }
+            }
+
             return NextResponse.json({
                 ...document,
                 currentUserPermission: "READ", // Default for public access
+                isSharedDocument,
                 version: document.version,
                 lastSyncedAt: document.lastSyncedAt
             });
@@ -273,6 +283,7 @@ export async function GET(
         return NextResponse.json({
             ...document,
             currentUserPermission,
+            isSharedDocument: !access.isOwner && access.collaboratorPermission !== null,
             version: document.version,
             lastSyncedAt: document.lastSyncedAt
         });

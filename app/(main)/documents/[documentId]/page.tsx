@@ -61,6 +61,7 @@ export default function DocumentIdPage({
     const [parentDocument, setParentDocument] = useState<any>(null);
     const [permission, setPermission] = useState("READ");
     const [isDatabase, setIsDatabase] = useState(false);
+    const [isSharedDocument, setIsSharedDocument] = useState(false);
     const [loading, setLoading] = useState(true);
     const [version, setVersion] = useState(1);
     const [showConflict, setShowConflict] = useState(false);
@@ -134,6 +135,7 @@ export default function DocumentIdPage({
             setParentDocument(data.parentDocument || null);
             setPermission(data.currentUserPermission || "READ");
             setIsDatabase(data.isDatabase || false);
+            setIsSharedDocument(Boolean(data.isSharedDocument));
             setVersion(data.version || 1); // Track document version
 
             // Extract tag options
@@ -344,7 +346,7 @@ export default function DocumentIdPage({
     // This is better for perceived performance.
 
     const canEdit = permission === "OWNER" || permission === "EDIT";
-    const canComment = !isDatabase && (permission === "EDIT" || permission === "READ");
+    const canComment = !isDatabase && isSharedDocument;
 
     const onToggleDatabase = async () => {
         const newValue = !isDatabase;
