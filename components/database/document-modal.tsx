@@ -17,6 +17,7 @@ import { documentEvents } from "@/lib/events";
 import { useDocumentSync } from "@/hooks/use-document-sync";
 import { toast } from "sonner";
 import { hasAuthoritativeDocumentVersion } from "@/lib/sync-events";
+import { DocumentComments } from "@/components/document-comments";
 
 interface DocumentModalProps {
     documentId: string;
@@ -37,6 +38,7 @@ export const DocumentModal = ({ documentId, isOpen, onClose }: DocumentModalProp
     const [properties, setProperties] = useState<any>({});
     const [tagOptions, setTagOptions] = useState<{ id: string; label: string; color: string }[]>([]);
     const [parentDocumentId, setParentDocumentId] = useState<string | null>(null);
+    const [permission, setPermission] = useState("READ");
     const [version, setVersion] = useState(1);
     const [author, setAuthor] = useState<{ id: string; name: string | null; image: string | null } | null>(null);
 
@@ -59,6 +61,7 @@ export const DocumentModal = ({ documentId, isOpen, onClose }: DocumentModalProp
                     setContent(data.content);
                     setVersion(data.version || 1);
                     setAuthor(data.user);
+                    setPermission(data.currentUserPermission || "READ");
                     try {
                         setProperties(data.properties ? JSON.parse(data.properties) : {});
                     } catch {
@@ -322,6 +325,8 @@ export const DocumentModal = ({ documentId, isOpen, onClose }: DocumentModalProp
 
     if (!isOpen) return null;
 
+    const canComment = permission === "OWNER" || permission === "EDIT" || permission === "READ";
+
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
             <DialogContent
@@ -436,6 +441,12 @@ export const DocumentModal = ({ documentId, isOpen, onClose }: DocumentModalProp
                                         placeholder="Untitled"
                                     />
                                 </div>
+
+                                <DocumentComments
+                                    documentId={documentId}
+                                    canComment={canComment}
+                                    placement="top"
+                                />
 
                                 {/* Properties */}
                                 <div className="mt-2 mb-8">

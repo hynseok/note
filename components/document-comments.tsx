@@ -33,6 +33,7 @@ interface DocumentCommentsResponse {
 interface DocumentCommentsProps {
     documentId: string;
     canComment: boolean;
+    placement?: "top" | "bottom";
 }
 
 function getDisplayName(user: CommentUser): string {
@@ -181,7 +182,11 @@ function CommentRow({
     );
 }
 
-export function DocumentComments({ documentId, canComment }: DocumentCommentsProps) {
+export function DocumentComments({
+    documentId,
+    canComment,
+    placement = "top",
+}: DocumentCommentsProps) {
     const [comments, setComments] = useState<DocumentCommentItem[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -285,9 +290,13 @@ export function DocumentComments({ documentId, canComment }: DocumentCommentsPro
 
     const hasComments = comments.length > 0;
     const sectionTitle = useMemo(() => `Comments (${comments.length})`, [comments.length]);
+    const sectionClassName =
+        placement === "top"
+            ? "mb-8 border-b border-border pb-6"
+            : "mt-10 border-t border-border pt-8";
 
     return (
-        <section className="mt-10 border-t border-border pt-8">
+        <section className={sectionClassName}>
             <div className="mb-4 flex items-center gap-2">
                 <MessageCircle className="h-4 w-4 text-muted-foreground" />
                 <h3 className="text-sm font-semibold tracking-wide text-muted-foreground uppercase">

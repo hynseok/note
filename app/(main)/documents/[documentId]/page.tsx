@@ -509,6 +509,13 @@ export default function DocumentIdPage({
                                 className="w-full text-5xl bg-transparent font-bold break-words outline-none text-[#3F3F3F] dark:text-[#CFCFCF] resize-none disabled:opacity-50"
                                 placeholder="Untitled"
                             />
+                            {!loading && (
+                                <DocumentComments
+                                    documentId={documentId}
+                                    canComment={canComment}
+                                    placement="top"
+                                />
+                            )}
                         </div>
                     </div>
                     <div className="pl-2">
@@ -532,18 +539,14 @@ export default function DocumentIdPage({
                                             editable={canEdit}
                                         />
                                     </div>
-                                    <DocumentComments documentId={documentId} canComment={canComment} />
                                 </div>
                             ) : (
-                                <>
-                                    <Editor
-                                        documentId={documentId}
-                                        onChange={onContentChange}
-                                        initialContent={content}
-                                        editable={canEdit}
-                                    />
-                                    <DocumentComments documentId={documentId} canComment={canComment} />
-                                </>
+                                <Editor
+                                    documentId={documentId}
+                                    onChange={onContentChange}
+                                    initialContent={content}
+                                    editable={canEdit}
+                                />
                             )
                         )}
                     </div>
