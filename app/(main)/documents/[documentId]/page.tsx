@@ -344,7 +344,7 @@ export default function DocumentIdPage({
     // This is better for perceived performance.
 
     const canEdit = permission === "OWNER" || permission === "EDIT";
-    const canComment = permission === "OWNER" || permission === "EDIT" || permission === "READ";
+    const canComment = !isDatabase && (permission === "EDIT" || permission === "READ");
 
     const onToggleDatabase = async () => {
         const newValue = !isDatabase;
@@ -509,7 +509,7 @@ export default function DocumentIdPage({
                                 className="w-full text-5xl bg-transparent font-bold break-words outline-none text-[#3F3F3F] dark:text-[#CFCFCF] resize-none disabled:opacity-50"
                                 placeholder="Untitled"
                             />
-                            {!loading && (
+                            {!loading && canComment && (
                                 <DocumentComments
                                     documentId={documentId}
                                     canComment={canComment}

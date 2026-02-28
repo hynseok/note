@@ -39,6 +39,7 @@ export const DocumentModal = ({ documentId, isOpen, onClose }: DocumentModalProp
     const [tagOptions, setTagOptions] = useState<{ id: string; label: string; color: string }[]>([]);
     const [parentDocumentId, setParentDocumentId] = useState<string | null>(null);
     const [permission, setPermission] = useState("READ");
+    const [isDatabase, setIsDatabase] = useState(false);
     const [version, setVersion] = useState(1);
     const [author, setAuthor] = useState<{ id: string; name: string | null; image: string | null } | null>(null);
 
@@ -62,6 +63,7 @@ export const DocumentModal = ({ documentId, isOpen, onClose }: DocumentModalProp
                     setVersion(data.version || 1);
                     setAuthor(data.user);
                     setPermission(data.currentUserPermission || "READ");
+                    setIsDatabase(Boolean(data.isDatabase));
                     try {
                         setProperties(data.properties ? JSON.parse(data.properties) : {});
                     } catch {
@@ -325,7 +327,7 @@ export const DocumentModal = ({ documentId, isOpen, onClose }: DocumentModalProp
 
     if (!isOpen) return null;
 
-    const canComment = permission === "OWNER" || permission === "EDIT" || permission === "READ";
+    const canComment = !isDatabase && (permission === "EDIT" || permission === "READ");
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -442,12 +444,6 @@ export const DocumentModal = ({ documentId, isOpen, onClose }: DocumentModalProp
                                     />
                                 </div>
 
-                                <DocumentComments
-                                    documentId={documentId}
-                                    canComment={canComment}
-                                    placement="top"
-                                />
-
                                 {/* Properties */}
                                 <div className="mt-2 mb-8">
                                     <PropertyEditor
@@ -458,6 +454,14 @@ export const DocumentModal = ({ documentId, isOpen, onClose }: DocumentModalProp
                                         author={author}
                                     />
                                 </div>
+
+                                {canComment && (
+                                    <DocumentComments
+                                        documentId={documentId}
+                                        canComment={canComment}
+                                        placement="top"
+                                    />
+                                )}
 
                                 {/* Editor */}
                                 <div className="-ml-4 pl-4 border-t border-neutral-200 dark:border-neutral-800 pt-8">

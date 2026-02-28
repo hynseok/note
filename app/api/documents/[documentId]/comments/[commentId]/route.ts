@@ -25,7 +25,8 @@ export async function DELETE(_: Request, props: RouteProps) {
         if (!access.exists) {
             return new NextResponse("Not Found", { status: 404 });
         }
-        if (!access.canRead) {
+        const isSharedCollaborator = !access.isOwner && access.collaboratorPermission !== null;
+        if (!isSharedCollaborator) {
             return new NextResponse("Unauthorized", { status: 401 });
         }
 
@@ -42,7 +43,7 @@ export async function DELETE(_: Request, props: RouteProps) {
             return new NextResponse("Not Found", { status: 404 });
         }
 
-        const canDelete = comment.userId === currentUser.id || access.canDelete;
+        const canDelete = comment.userId === currentUser.id;
         if (!canDelete) {
             return new NextResponse("Unauthorized", { status: 401 });
         }

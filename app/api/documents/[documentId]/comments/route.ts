@@ -30,7 +30,8 @@ export async function GET(_: Request, props: RouteProps) {
         if (!access.exists) {
             return new NextResponse("Not Found", { status: 404 });
         }
-        if (!access.canRead) {
+        const isSharedCollaborator = !access.isOwner && access.collaboratorPermission !== null;
+        if (!isSharedCollaborator) {
             return new NextResponse("Unauthorized", { status: 401 });
         }
 
@@ -55,8 +56,7 @@ export async function GET(_: Request, props: RouteProps) {
             },
         });
 
-        const canDeleteComment = (authorId: string) =>
-            authorId === currentUser.id || access.canDelete;
+        const canDeleteComment = (authorId: string) => authorId === currentUser.id;
 
         return NextResponse.json({
             comments: comments.map((comment) => ({
@@ -93,7 +93,8 @@ export async function POST(req: Request, props: RouteProps) {
         if (!access.exists) {
             return new NextResponse("Not Found", { status: 404 });
         }
-        if (!access.canRead) {
+        const isSharedCollaborator = !access.isOwner && access.collaboratorPermission !== null;
+        if (!isSharedCollaborator) {
             return new NextResponse("Unauthorized", { status: 401 });
         }
 
