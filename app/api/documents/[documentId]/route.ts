@@ -228,7 +228,12 @@ export async function GET(
                             }
                         }
                     }
-                }
+                },
+                _count: {
+                    select: {
+                        collaborators: true,
+                    },
+                },
             }
         });
 
@@ -236,10 +241,14 @@ export async function GET(
             return new NextResponse("Not Found", { status: 404 });
         }
 
+        const isSharedDocument = document._count.collaborators > 0;
+
         if (document.isPublished && !document.isArchived) {
+
             return NextResponse.json({
                 ...document,
                 currentUserPermission: "READ", // Default for public access
+                isSharedDocument,
                 version: document.version,
                 lastSyncedAt: document.lastSyncedAt
             });
@@ -273,6 +282,7 @@ export async function GET(
         return NextResponse.json({
             ...document,
             currentUserPermission,
+            isSharedDocument,
             version: document.version,
             lastSyncedAt: document.lastSyncedAt
         });

@@ -19,6 +19,7 @@ import { useDocumentSync } from "@/hooks/use-document-sync";
 import { useSession } from "next-auth/react";
 import { ConflictBanner } from "@/components/conflict-banner";
 import { hasAuthoritativeDocumentVersion } from "@/lib/sync-events";
+import { DocumentComments } from "@/components/document-comments";
 
 // Simple debounce utility
 function debounce<T extends (...args: any[]) => any>(
@@ -60,6 +61,7 @@ export default function DocumentIdPage({
     const [parentDocument, setParentDocument] = useState<any>(null);
     const [permission, setPermission] = useState("READ");
     const [isDatabase, setIsDatabase] = useState(false);
+    const [isSharedDocument, setIsSharedDocument] = useState(false);
     const [loading, setLoading] = useState(true);
     const [version, setVersion] = useState(1);
     const [showConflict, setShowConflict] = useState(false);
@@ -133,6 +135,7 @@ export default function DocumentIdPage({
             setParentDocument(data.parentDocument || null);
             setPermission(data.currentUserPermission || "READ");
             setIsDatabase(data.isDatabase || false);
+            setIsSharedDocument(Boolean(data.isSharedDocument));
             setVersion(data.version || 1); // Track document version
 
             // Extract tag options
@@ -343,6 +346,7 @@ export default function DocumentIdPage({
     // This is better for perceived performance.
 
     const canEdit = permission === "OWNER" || permission === "EDIT";
+    const canComment = !isDatabase && isSharedDocument;
 
     const onToggleDatabase = async () => {
         const newValue = !isDatabase;
@@ -507,6 +511,13 @@ export default function DocumentIdPage({
                                 className="w-full text-5xl bg-transparent font-bold break-words outline-none text-[#3F3F3F] dark:text-[#CFCFCF] resize-none disabled:opacity-50"
                                 placeholder="Untitled"
                             />
+                            {!loading && canComment && (
+                                <DocumentComments
+                                    documentId={documentId}
+                                    canComment={canComment}
+                                    placement="top"
+                                />
+                            )}
                         </div>
                     </div>
                     <div className="pl-2">
