@@ -19,6 +19,7 @@ import { useDocumentSync } from "@/hooks/use-document-sync";
 import { useSession } from "next-auth/react";
 import { ConflictBanner } from "@/components/conflict-banner";
 import { hasAuthoritativeDocumentVersion } from "@/lib/sync-events";
+import { DocumentComments } from "@/components/document-comments";
 
 // Simple debounce utility
 function debounce<T extends (...args: any[]) => any>(
@@ -343,6 +344,7 @@ export default function DocumentIdPage({
     // This is better for perceived performance.
 
     const canEdit = permission === "OWNER" || permission === "EDIT";
+    const canComment = permission === "OWNER" || permission === "EDIT" || permission === "READ";
 
     const onToggleDatabase = async () => {
         const newValue = !isDatabase;
@@ -530,14 +532,18 @@ export default function DocumentIdPage({
                                             editable={canEdit}
                                         />
                                     </div>
+                                    <DocumentComments documentId={documentId} canComment={canComment} />
                                 </div>
                             ) : (
-                                <Editor
-                                    documentId={documentId}
-                                    onChange={onContentChange}
-                                    initialContent={content}
-                                    editable={canEdit}
-                                />
+                                <>
+                                    <Editor
+                                        documentId={documentId}
+                                        onChange={onContentChange}
+                                        initialContent={content}
+                                        editable={canEdit}
+                                    />
+                                    <DocumentComments documentId={documentId} canComment={canComment} />
+                                </>
                             )
                         )}
                     </div>
