@@ -1,0 +1,23 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="64" height="64" rx="18" fill="url(#bg)"/>
+  <rect x="11" y="11" width="42" height="42" rx="14" fill="url(#panel)" fill-opacity="0.22"/>
+  <path d="M22 16.5C22 14.567 23.567 13 25.5 13H37.7574C38.8183 13 39.8357 13.4214 40.5858 14.1716L46.8284 20.4142C47.5786 21.1643 48 22.1817 48 23.2426V41.5C48 43.433 46.433 45 44.5 45H25.5C23.567 45 22 43.433 22 41.5V16.5Z" fill="#F8FAFC"/>
+  <path d="M38 13.25V20C38 21.1046 38.8954 22 40 22H46.75" fill="#D7E3F4"/>
+  <path d="M38 13.25V20C38 21.1046 38.8954 22 40 22H46.75" stroke="#C6D4EA" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="27" y="26" width="16" height="4" rx="2" fill="#1D4ED8"/>
+  <rect x="27" y="33" width="12" height="3.5" rx="1.75" fill="#14B8A6"/>
+  <rect x="27" y="39" width="9" height="3.5" rx="1.75" fill="#0F172A" opacity="0.75"/>
+  <circle cx="44.5" cy="44.5" r="7.5" fill="#F97316"/>
+  <path d="M44.5 41.5C43.2574 41.5 42.25 42.5074 42.25 43.75V44.5H41.75C41.3358 44.5 41 44.8358 41 45.25V47.75C41 48.1642 41.3358 48.5 41.75 48.5H47.25C47.6642 48.5 48 48.1642 48 47.75V45.25C48 44.8358 47.6642 44.5 47.25 44.5H46.75V43.75C46.75 42.5074 45.7426 41.5 44.5 41.5ZM43.75 44.5V43.75C43.75 43.3358 44.0858 43 44.5 43C44.9142 43 45.25 43.3358 45.25 43.75V44.5H43.75Z" fill="white"/>
+  <defs>
+    <linearGradient id="bg" x1="8" y1="6" x2="56" y2="58" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0F172A"/>
+      <stop offset="0.52" stop-color="#1D4ED8"/>
+      <stop offset="1" stop-color="#14B8A6"/>
+    </linearGradient>
+    <linearGradient id="panel" x1="14" y1="11" x2="51" y2="53" gradientUnits="userSpaceOnUse">
+      <stop stop-color="white" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="white" stop-opacity="0.08"/>
+    </linearGradient>
+  </defs>
+</svg>

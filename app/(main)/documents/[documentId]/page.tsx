@@ -19,6 +19,7 @@ import { useDocumentSync } from "@/hooks/use-document-sync";
 import { useSession } from "next-auth/react";
 import { ConflictBanner } from "@/components/conflict-banner";
 import { hasAuthoritativeDocumentVersion } from "@/lib/sync-events";
+import { persistLastViewedDocument } from "@/lib/last-viewed-document";
 
 // Simple debounce utility
 function debounce<T extends (...args: any[]) => any>(
@@ -125,6 +126,7 @@ export default function DocumentIdPage({
             const res = await fetch(`/api/documents/${documentId}`);
             if (!res.ok) return;
             const data = await res.json();
+            persistLastViewedDocument(documentId);
             setTitle(data.title === "Untitled" ? "" : data.title);
             setIcon(data.icon);
             setCoverImage(data.coverImage);
