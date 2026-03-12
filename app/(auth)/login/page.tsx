@@ -29,7 +29,7 @@ const LoginPage = () => {
                     <Button
                         variant="outline"
                         className="w-full h-12 text-base font-medium transition-all hover:bg-secondary/80"
-                        onClick={() => signIn("google", { callbackUrl: "/documents" })}
+                        onClick={() => signIn("google", { callbackUrl: "/" })}
                     >
                         <svg className="mr-2 h-5 w-5" viewBox="0 0 24 24">
                             <path
