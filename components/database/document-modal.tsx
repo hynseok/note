@@ -17,6 +17,7 @@ import { documentEvents } from "@/lib/events";
 import { useDocumentSync } from "@/hooks/use-document-sync";
 import { toast } from "sonner";
 import { hasAuthoritativeDocumentVersion } from "@/lib/sync-events";
+import { DocumentComments } from "@/components/document-comments";
 import { persistLastViewedDocument } from "@/lib/last-viewed-document";
 
 interface DocumentModalProps {
@@ -38,6 +39,8 @@ export const DocumentModal = ({ documentId, isOpen, onClose }: DocumentModalProp
     const [properties, setProperties] = useState<any>({});
     const [tagOptions, setTagOptions] = useState<{ id: string; label: string; color: string }[]>([]);
     const [parentDocumentId, setParentDocumentId] = useState<string | null>(null);
+    const [isSharedDocument, setIsSharedDocument] = useState(false);
+    const [isDatabase, setIsDatabase] = useState(false);
     const [version, setVersion] = useState(1);
     const [author, setAuthor] = useState<{ id: string; name: string | null; image: string | null } | null>(null);
 
@@ -61,6 +64,8 @@ export const DocumentModal = ({ documentId, isOpen, onClose }: DocumentModalProp
                     setContent(data.content);
                     setVersion(data.version || 1);
                     setAuthor(data.user);
+                    setIsSharedDocument(Boolean(data.isSharedDocument));
+                    setIsDatabase(Boolean(data.isDatabase));
                     try {
                         setProperties(data.properties ? JSON.parse(data.properties) : {});
                     } catch {
@@ -324,6 +329,8 @@ export const DocumentModal = ({ documentId, isOpen, onClose }: DocumentModalProp
 
     if (!isOpen) return null;
 
+    const canComment = !isDatabase && isSharedDocument;
+
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
             <DialogContent
@@ -449,6 +456,14 @@ export const DocumentModal = ({ documentId, isOpen, onClose }: DocumentModalProp
                                         author={author}
                                     />
                                 </div>
+
+                                {canComment && (
+                                    <DocumentComments
+                                        documentId={documentId}
+                                        canComment={canComment}
+                                        placement="top"
+                                    />
+                                )}
 
                                 {/* Editor */}
                                 <div className="-ml-4 pl-4 border-t border-neutral-200 dark:border-neutral-800 pt-8">
