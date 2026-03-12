@@ -18,6 +18,7 @@ import { useDocumentSync } from "@/hooks/use-document-sync";
 import { toast } from "sonner";
 import { hasAuthoritativeDocumentVersion } from "@/lib/sync-events";
 import { DocumentComments } from "@/components/document-comments";
+import { persistLastViewedDocument } from "@/lib/last-viewed-document";
 
 interface DocumentModalProps {
     documentId: string;
@@ -56,6 +57,7 @@ export const DocumentModal = ({ documentId, isOpen, onClose }: DocumentModalProp
                 .then(res => res.json())
                 .then(data => {
                     // Treat "Untitled" as empty string for placeholder behavior
+                    persistLastViewedDocument(documentId);
                     setTitle(data.title === "Untitled" ? "" : data.title);
                     setIcon(data.icon);
                     setCoverImage(data.coverImage);
