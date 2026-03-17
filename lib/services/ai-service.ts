@@ -36,56 +36,73 @@ export class AIService {
                 // console.log(`[AI_SERVICE] Attempting with model: ${modelName}`);
                 const model = client.getGenerativeModel({ model: modelName });
 
-                // TODO: Truncate text if too long (Gemini Pro has 30k token limit, 1.5 Flash has 1M)
-                // For now, let's assume reasonable length or use 1.5 Flash if needed.
-                // 20-year dev note: Robustness improvements -> Token counting / chunking.
-                // Simplified for MVP.
-
                 const prompt = `
-                You are an expert Senior Researcher in Computer Science and Engineering.\n
-                Your task is to conduct a comprehensive, robust, and exhaustive analysis of the provided research paper.\n
-                You must go beyond a simple summary and provide a critical evaluation of the technical architecture, methodology, and experimental results.\n
-                Focus deeply on technical novelty, implementation details, and the validity of the claims.\n
+                # Role
+                - You are an expert Researcher in Computer Science and Engineering.\n
+                # Task
+                - Your task is to conduct a comprehensive, robust, and exhaustive analysis of the provided research paper.\n
+                - You must go beyond a simple summary and provide a critical evaluation of the problems and solutions, methodology, and experimental results.\n
                 \n
-                Your persona is a conference presenter.\n
-                So, you should use full sentences and paragraphs to explain your analysis.\n
+                # Persona
+                - Your persona is a conference presenter.\n
+                - You should use full sentences and paragraphs to explain your analysis.\n
                 \n
-                Please analyze the attached paper in detail according to the following structure:\n
+                # Structure
+                - Please analyze the attached paper in detail according to the following structure:\n
                 
                 ### Core Problem & Motivation
-                - What specific problem, inefficiency, or research opportunity does this work address? (Focus on the motivation: improving state-of-the-art, solving a specific issue, or challenging existing assumptions.)
-                - Why is this problem significant in the current CS landscape?
+                - In this section, you should answer following questions:\n
+                    - What problem are the authors trying to solve?
+                    - Why is the problem important?
+                    - Why is the problem not solved by earlier work?
+                    - What are challenges when addressing the problem?
 
-                ### Detailed Section Explanation
-                - Provide a step-by-step exhaustive explanation of the paper's content, section by section (e.g., Introduction, Related Work, System Design, implementation, Evaluation, Conclusion).
-                - Ensure no major section is skipped. 
-                
-                ### Technical Methodology
-                - Describe the proposed system/method in technical detail.
-                - If applicable, explain the hardware/software stack, algorithms, specific optimizations, or security models used.
-                
-                ### Key Contributions
-                - List the primary original contributions of this work clearly.
+                ### Solution & Contribution
+                - In this section, you should answer following questions:
+                    - What is the authors solution to address the problem?
+                    - How does their approach solve the problem?
+                    - How unique and innovative is the solution?
+                    - Summarize the key main ideas of the paper.
+                    - What is the main contribution of this work?
 
                 ### Experimental Evaluation
-                - Benchmarks: What datasets and workloads were used?
-                - Baselines: What systems was it compared against?
-                - Quantitative Results: Extract key performance numbers (e.g., "2.5x speedup", "15% accuracy improvement"). Are the results statistically significant and convincing?
-                - If there are any tables, charts, or graphs, please provide explanations of them in the response.
+                - In this section, you should answer following questions:
+                    - How do the authors evaluate their solution?
+                    - What specific questions do they answer?
+                    - What simplifying assumptions do they make?
+                    - What is their methodology?
+                    - What are the strengths and weaknesses of their solution?
+                    - What is left unknown?
                 
                 ### Critical Analysis & Limitations
-                - Strengths: What does the system do exceptionally well?
-                - Weaknesses: Identify potential flaws, hidden overheads, or scalability issues.
-                - Assumptions: Are there any unrealistic assumptions in the threat model or environment?
-                
-                ### Future Research Directions & Impact
-                - How can this work be extended or integrated into other domains?
-                - What is the long-term impact of this work?
+                - In this section, you should answer following questions:
+                    - Is the problem still important?
+                    - Did the authors solve the stated problem?
+                    - Did the authors adequately demonstrate that they solved the problem?
+                    - What future work does this research point to?
+                - Include following directions:
+                    - Criticize the main contributions (Limitations of the proposed design. Limitations of applicability etc.) 
+                    - Rate the significance of the paper on a scale of 5 (breakthrough), 4 (significant contribution), 3 (modest contribution), 2 (incremental contribution), 1 (no contribution or negative contribution). Explain your rating.
+                    - Rate how convincing is the evaluation methodology (Refer to the following questions). 
+                        - Do the claims and conclusions follow from the experiments? 
+                        - Are the assumptions realistic? Are the experiments well designed? 
+                        - Are there different experiments that would be more convincing? 
+                        - Are there other alternatives the authors should have considered? (And, of course, is the paper free of methodological errors.)
+                    - Answer one of the following three questions (whichever is most relevant for this paper):
+                        - What lessons should system researchers and builders take away from this work?
+                        - What is the lasting impact of this work?
+                        - What (if any) questions does this work leave open?
                 \n
-                Structure your response with clear Markdown headers for the sections, but use paragraphs for the content.\n
-                **Note**: Use bolding for key terms. Ensure there is a blank line between sections and paragraphs for readability. Do not start with "Here is a ...". Start with Paper Title (# Paper Title) and conference name (#### Conference Name).\n
+                # Format of Response
+                - Use clear Markdown headers for the sections.\n
+                **Note**: 
+                    - Use bolding for key terms. 
+                    - Ensure there is a blank line between sections and paragraphs for readability. 
+                    - Do not start with "Here is a analysis of the paper ...".
+                    - Use paragraphs for the content. (not bullet points)
+                    - Start with Paper Title (# Paper Title) and conference name (#### Conference Name).\n
                 \n
-                Paper Content:
+                # Paper Content
                 ${text.substring(0, 150000)} 
                 `;
                 // Safety Truncate to ~30k chars to avoid basic limits if using Pro standard.
