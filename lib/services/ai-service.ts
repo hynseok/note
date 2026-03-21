@@ -110,7 +110,20 @@ export class AIService {
 
                 const result = await model.generateContent(prompt);
                 const response = await result.response;
-                return response.text();
+                const respText = response.text();
+
+                // Translate to Korean
+                const translationPrompt = `You are a professional translator. \n
+                    Your task is to translate the following analysis into Korean. \n
+                    Do not add any additional explanations. \n
+                    Keep all Markdown formatting exactly the same:\n\n${respText}`;
+
+                const translationResult = await model.generateContent(translationPrompt);
+                const translationResponse = await translationResult.response;
+                const koreanText = translationResponse.text();
+
+                // Combine both responses
+                return `${respText}\n\n---\n\n# [한국어 번역본]\n\n${koreanText}`;
             } catch (error) {
                 console.error(`[AI_SERVICE] Failed with model ${modelName}:`, error);
                 lastError = error;
