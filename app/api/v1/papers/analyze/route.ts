@@ -6,6 +6,7 @@ import prismadb from "@/lib/prismadb";
 import { existsSync } from "fs";
 import { PDFService } from "@/lib/services/pdf-service";
 import { AIService } from "@/lib/services/ai-service";
+import { parseMarkdownToHTML } from "@/lib/markdown-parser";
 
 const UPLOAD_DIR = join(process.cwd(), "public", "uploads");
 
@@ -61,11 +62,14 @@ export async function POST(req: NextRequest) {
         // 5. Run AIService for Analysis
         const markdown = await AIService.summarizePaper(extractedText);
 
+        // Fix formatting by parsing markdown to HTML
+        const htmlContent = parseMarkdownToHTML(markdown);
+
         // 6. Save Analysis as a Document (Note) in Database
         const publicFileUrl = `/api/files/${uniqueFilename}`;
         
         // Use HTML string to append link at bottom for the note
-        const contentWithAttachment = `${markdown}\n\n<p><a href="${publicFileUrl}" target="_blank">📄 Original PDF: ${file.name}</a></p>`;
+        const contentWithAttachment = `${htmlContent}<p><br></p><p><a href="${publicFileUrl}" target="_blank">📄 Original PDF: ${file.name}</a></p>`;
 
         // Find highest order to place note at the end
         const lastDocument = await prismadb.document.findFirst({
